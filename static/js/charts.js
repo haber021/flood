@@ -203,14 +203,6 @@ function createChart(canvasId, label, colors) {
                     }
                 },
                 x: {
-                    type: 'time',
-                    time: {
-                        unit: 'hour',
-                        displayFormats: {
-                            hour: 'HH:mm'
-                        },
-                        tooltipFormat: 'MMM d, HH:mm' // More detailed format for tooltips
-                    },
                     title: {
                         display: true,
                         text: 'Time',
@@ -231,20 +223,24 @@ function createChart(canvasId, label, colors) {
                         maxTicksLimit: isMobile ? 4 : 6, // Further reduce number of ticks to prevent overlap
                         autoSkip: true,
                         callback: function(value, index, values) {
-                            // Simplified time formatting - just hours, no minutes
-                            if (typeof value === 'string' || value instanceof Date) {
-                                try {
-                                    // Try to parse the date string
-                                    const date = typeof value === 'string' ? new Date(value) : value;
-                                    
-                                    // If it's a valid date
-                                    if (!isNaN(date.getTime())) {
-                                        // Just show hour
-                                        return date.getHours() + ':00';
-                                    }
-                                } catch (e) {
-                                    // If parsing fails, return the original value
+                            // Simplified time formatting
+                            if (typeof value === 'string' && value.includes('-')) {
+                                // Extract just the time part from ISO format
+                                const timePart = value.split('T')[1] || '';
+                                if (timePart) {
+                                    // Just show hour:minute
+                                    return timePart.substring(0, 5); // Take HH:MM part
                                 }
+                                
+                                // If we can't extract a time part, try to use Date object
+                                try {
+                                    const date = new Date(value);
+                                    if (!isNaN(date.getTime())) {
+                                        const hours = date.getHours();
+                                        const minutes = date.getMinutes();
+                                        return hours + ':' + (minutes < 10 ? '0' : '') + minutes;
+                                    }
+                                } catch (e) {}
                             }
                             return value;
                         }
