@@ -251,9 +251,10 @@ function setupMapControls() {
 function setMapMode(mode) {
     // Update active button
     document.querySelectorAll('#btn-risk-zones, #btn-sensors, #btn-barangays').forEach(btn => {
-        btn.classList.remove('active');
+        if (btn) btn.classList.remove('active');
     });
-    document.getElementById(`btn-${mode}`).classList.add('active');
+    const activeBtn = document.getElementById(`btn-${mode}`);
+    if (activeBtn) activeBtn.classList.add('active');
     
     // Update active map mode
     activeMapMode = mode;
@@ -350,7 +351,7 @@ function loadMapData() {
             }
             
             // Show an error notification on the map
-            if (map) {
+            if (floodMap) {
                 // Create or update the error control if it doesn't exist
                 if (!window.mapErrorControl) {
                     window.mapErrorControl = L.control({position: 'topright'});
@@ -362,7 +363,7 @@ function loadMapData() {
                         div.style.maxWidth = '300px';
                         return div;
                     };
-                    window.mapErrorControl.addTo(map);
+                    window.mapErrorControl.addTo(floodMap);
                 }
             }
             
@@ -372,8 +373,8 @@ function loadMapData() {
             barangaysLayer.clearLayers();
             
             // Set map to default Philippines view as fallback
-            if (map && !window.hasActiveMapData) {
-                map.setView([12.8797, 121.7740], 6); // Philippines default view
+            if (floodMap && !window.hasActiveMapData) {
+                floodMap.setView([12.8797, 121.7740], 6); // Philippines default view
             }
         });
 }
