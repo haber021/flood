@@ -315,8 +315,19 @@ function checkActiveAlerts() {
                         noAffectedBarangaysElement.classList.add('d-none');
                     }
                     
+                    // Construct the URL with location parameters
+                    let barangayUrl = '/api/barangays/';
+                    
+                    // Add location parameters if available
+                    if (window.selectedMunicipality) {
+                        barangayUrl += `?municipality_id=${window.selectedMunicipality.id}`;
+                        console.log(`[Barangays] Adding municipality filter: ${window.selectedMunicipality.name}`);
+                    }
+                    
+                    console.log(`[Barangays] Fetching barangay data with URL: ${barangayUrl}`);
+                    
                     // Fetch barangay details
-                    fetch('/api/barangays/')
+                    fetch(barangayUrl)
                         .then(response => response.json())
                         .then(barangayData => {
                             if (barangayData.results && barangayData.results.length > 0) {
@@ -446,7 +457,19 @@ function updateAlertStatus(highestAlert) {
     
     // Update alerts count text
     if (alertsCount) {
-        fetch('/api/flood-alerts/?active=true')
+        // Construct the URL with location parameters
+        let alertCountUrl = '/api/flood-alerts/?active=true';
+        
+        // Add location parameters if available
+        if (window.selectedMunicipality) {
+            alertCountUrl += `&municipality_id=${window.selectedMunicipality.id}`;
+        }
+        
+        if (window.selectedBarangay) {
+            alertCountUrl += `&barangay_id=${window.selectedBarangay.id}`;
+        }
+        
+        fetch(alertCountUrl)
             .then(response => response.json())
             .then(data => {
                 const count = data.count || 0;
