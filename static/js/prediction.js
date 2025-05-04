@@ -121,6 +121,43 @@ function initializeHistoricalChart() {
                     title: {
                         display: true,
                         text: 'Date'
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 0,
+                        padding: 10,
+                        maxTicksLimit: 10,
+                        autoSkip: true,
+                        callback: function(value, index, values) {
+                            // Improved date formatting 
+                            if (typeof value === 'string' && value.includes('-')) {
+                                try {
+                                    const date = new Date(value);
+                                    if (!isNaN(date.getTime())) {
+                                        // Check time period
+                                        const timeRange = currentHistoricalPeriod || 7;
+                                        
+                                        if (timeRange >= 30) {
+                                            // For monthly view, show just month/day
+                                            return `${date.getMonth()+1}/${date.getDate()}`;
+                                        } else if (timeRange >= 7) {
+                                            // For weekly view 
+                                            return `${date.getMonth()+1}/${date.getDate()}`;
+                                        } else {
+                                            // For daily view
+                                            return `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
+                                        }
+                                    }
+                                } catch (e) {}
+                                
+                                // Fallback if date parsing fails
+                                const parts = value.split(' ');
+                                if (parts.length > 1) {
+                                    return parts[0];
+                                }
+                            }
+                            return value;
+                        }
                     }
                 }
             },

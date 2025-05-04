@@ -261,20 +261,57 @@ def get_chart_data(request):
     """API endpoint to get chart data for the dashboard"""
     chart_type = request.GET.get('type', 'temperature')
     days = int(request.GET.get('days', 1))
+    historical = request.GET.get('historical', 'false').lower() == 'true'
+    
+    # Get location filters if provided
+    municipality_id = request.GET.get('municipality_id')
+    barangay_id = request.GET.get('barangay_id')
     
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
     
-    data = SensorData.objects.filter(
-        sensor__sensor_type=chart_type,
-        timestamp__gte=start_date,
-        timestamp__lte=end_date
-    ).order_by('timestamp')
+    # Build the query filter
+    filters = {
+        'sensor__sensor_type': chart_type,
+        'timestamp__gte': start_date,
+        'timestamp__lte': end_date
+    }
+    
+    # Add location filters if provided
+    if municipality_id:
+        filters['sensor__municipality_id'] = municipality_id
+    
+    if barangay_id:
+        filters['sensor__barangay_id'] = barangay_id
+    
+    data = SensorData.objects.filter(**filters).order_by('timestamp')
+    
+    # Format timestamps based on the time range
+    if days >= 30:  # Monthly view
+        date_format = '%b %d'
+    elif days >= 7:  # Weekly view
+        date_format = '%b %d'
+    elif days > 1:  # Multi-day view
+        date_format = '%m/%d %H:%M'
+    else:  # Single day view
+        date_format = '%H:%M'
     
     chart_data = {
         'labels': [reading.timestamp.strftime('%Y-%m-%d %H:%M') for reading in data],
         'values': [reading.value for reading in data],
     }
+    
+    # Add historical comparison data if requested
+    if historical:
+        # In a real app, we would query historical data from previous years
+        # For this example, we'll use a simplified approach
+        chart_data['historical_values'] = [float(f"{value * 0.85:.2f}") for value in chart_data['values']]
+        
+        # Add threshold values based on sensor type
+        if chart_type == 'water_level':
+            chart_data['threshold_value'] = 1.5  # Default flood threshold in meters
+        elif chart_type == 'rainfall':
+            chart_data['threshold_value'] = 25.0  # Heavy rainfall threshold in mm
     
     return JsonResponse(chart_data)
 
@@ -463,16 +500,7 @@ def get_flood_alerts(request):
     })
 
 
-def get_unit_for_sensor_type(sensor_type):
-    """Helper function to get the appropriate unit for a sensor type"""
-    unit_map = {
-        'temperature': '°C',
-        'humidity': '%',
-        'rainfall': 'mm',
-        'water_level': 'm',
-        'wind_speed': 'km/h',
-    }
-    return unit_map.get(sensor_type, '')
+# This function has been moved up to avoid duplication
 
 
 # User Management and Profile Views
