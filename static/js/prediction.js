@@ -257,6 +257,11 @@ function loadHistoricalData() {
     
     console.log(`Fetching historical ${currentHistoricalMode} data with URL: ${url}`);
     
+    // Reset chart before loading new data
+    if (historicalChart.data.datasets.length > 1) {
+        historicalChart.data.datasets.splice(1); // Remove all datasets except the first one
+    }
+    
     // Fetch data from API with location filters
     fetch(url)
         .then(response => response.json())
@@ -267,18 +272,13 @@ function loadHistoricalData() {
             historicalChart.data.labels = data.labels || [];
             historicalChart.data.datasets[0].data = data.values || [];
             
-            // Ensure we have only one or two datasets
-            if (historicalChart.data.datasets.length > 2) {
-                historicalChart.data.datasets.length = 1;
+            // If no data received, show a helpful message on the chart
+            if (!data.labels || data.labels.length === 0) {
+                console.warn('No data available for the selected time period');
             }
             
-            // Add historical comparison data if not already there
-            if (historicalChart.data.datasets.length === 1) {
-                addHistoricalComparisonData();
-            } else {
-                // Just update the chart with current data
-                historicalChart.update();
-            }
+            // Add historical comparison data
+            addHistoricalComparisonData();
         })
         .catch(error => {
             console.error(`Error loading ${currentHistoricalMode} historical data:`, error);
