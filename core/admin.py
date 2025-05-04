@@ -61,3 +61,38 @@ class EmergencyContactAdmin(admin.ModelAdmin):
     list_display = ('name', 'role', 'phone', 'email', 'barangay')
     list_filter = ('role', 'barangay')
     search_fields = ('name', 'role', 'phone', 'email')
+    
+# Define an inline admin descriptor for UserProfile model
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name_plural = 'User Profile'
+    fk_name = 'user'
+
+# Define a new User admin
+class CustomUserAdmin(UserAdmin):
+    inlines = (UserProfileInline, )
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'get_role')
+    list_select_related = ('profile', )
+    
+    def get_role(self, instance):
+        if hasattr(instance, 'profile'):
+            return instance.profile.get_role_display()
+        return '-'
+    get_role.short_description = 'Role'
+    
+    def get_inline_instances(self, request, obj=None):
+        if not obj:
+            return []
+        return super().get_inline_instances(request, obj)
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'municipality', 'barangay', 'phone_number', 'receive_alerts')
+    list_filter = ('role', 'municipality', 'barangay', 'receive_alerts', 'receive_sms', 'receive_email')
+    search_fields = ('user__username', 'user__email', 'phone_number')
+    raw_id_fields = ('user',)
+
+# Re-register UserAdmin
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)
