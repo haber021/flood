@@ -447,3 +447,28 @@ function updateCountdown(element, targetTime) {
         </div>
     `;
 }
+
+/**
+ * Highlight a barangay on the map when selected from the affected barangays list
+ */
+function highlightBarangay(barangayId) {
+    // Select the barangay in the dropdown
+    const barangaySelector = document.getElementById('barangay-selector');
+    if (barangaySelector) {
+        barangaySelector.value = barangayId;
+        
+        // Trigger the change event to update the map
+        const event = new Event('change');
+        barangaySelector.dispatchEvent(event);
+        
+        // Enable and click the focus button
+        const focusButton = document.getElementById('focus-selected-barangay');
+        if (focusButton) {
+            focusButton.disabled = false;
+            focusButton.click();
+        }
+    }
+    
+    // Scroll to the map section
+    document.getElementById('flood-map').scrollIntoView({ behavior: 'smooth' });
+}
