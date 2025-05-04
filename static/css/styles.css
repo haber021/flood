@@ -347,10 +347,26 @@ body {
     left: 0;
     width: 100% !important;
     height: 100% !important;
-    max-height: 600px;
+    max-height: 800px; /* Increased max height */
 }
 
 /* Chart responsiveness at different breakpoints */
+/* For wider screens */
+@media (min-width: 1400px) {
+    .responsive-chart {
+        padding-bottom: 40%; /* Flatter aspect ratio for wide screens */
+        min-height: 300px;
+    }
+}
+
+@media (min-width: 1800px) {
+    .responsive-chart {
+        padding-bottom: 35%; /* Even flatter for extra wide screens */
+        min-height: 350px;
+    }
+}
+
+/* For smaller screens */
 @media (max-width: 992px) {
     .responsive-chart {
         padding-bottom: 60%;
