@@ -203,32 +203,44 @@ function createChart(canvasId, label, colors) {
                     }
                 },
                 x: {
+                    type: 'time',
+                    time: {
+                        unit: 'hour',
+                        displayFormats: {
+                            hour: 'HH:mm'
+                        },
+                        tooltipFormat: 'MMM d, HH:mm' // More detailed format for tooltips
+                    },
                     title: {
                         display: true,
-                        text: 'Time'
+                        text: 'Time',
+                        padding: {top: 10, bottom: 0}
+                    },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)' // Light grid lines
                     },
                     ticks: {
                         // For better readability on mobile
-                        maxRotation: isMobile ? 60 : 45,
+                        maxRotation: 0, // Prevent label rotation
                         minRotation: 0,
+                        padding: 12, // More padding between labels
                         font: {
-                            size: isMobile ? 9 : 11
+                            size: isMobile ? 10 : 12
                         },
-                        maxTicksLimit: isMobile ? 6 : 8, // Limit number of ticks on mobile
+                        maxTicksLimit: isMobile ? 4 : 6, // Further reduce number of ticks to prevent overlap
                         autoSkip: true,
                         callback: function(value, index, values) {
-                            // Format the date/time to be more readable
-                            if (typeof value === 'string') {
+                            // Simplified time formatting - just hours, no minutes
+                            if (typeof value === 'string' || value instanceof Date) {
                                 try {
                                     // Try to parse the date string
-                                    const date = new Date(value);
+                                    const date = typeof value === 'string' ? new Date(value) : value;
                                     
                                     // If it's a valid date
                                     if (!isNaN(date.getTime())) {
-                                        // Just show hour:minute
-                                        const hours = date.getHours();
-                                        const minutes = date.getMinutes();
-                                        return hours + ':' + (minutes < 10 ? '0' : '') + minutes;
+                                        // Just show hour
+                                        return date.getHours() + ':00';
                                     }
                                 } catch (e) {
                                     // If parsing fails, return the original value
