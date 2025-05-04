@@ -279,6 +279,9 @@ def get_chart_data(request):
 @login_required
 def get_map_data(request):
     """API endpoint to get map data"""
+    # Optional barangay_id filter
+    barangay_id = request.GET.get('barangay_id', None)
+    
     # Get sensors for map
     sensors = Sensor.objects.filter(active=True)
     sensor_data = []
@@ -309,14 +312,25 @@ def get_map_data(request):
             'geojson': zone.geojson,
         })
     
-    # Get affected barangays
-    active_alerts = FloodAlert.objects.filter(active=True)
-    affected_barangays = Barangay.objects.filter(flood_alerts__in=active_alerts).distinct()
+    # Get all barangays for the selector, even if not affected by alerts
+    all_barangays = Barangay.objects.all()
     barangay_data = []
     
-    for barangay in affected_barangays:
-        # Get the highest severity alert for this barangay
-        highest_severity = barangay.flood_alerts.filter(active=True).aggregate(Max('severity_level'))
+    # First, get all active alerts
+    active_alerts = FloodAlert.objects.filter(active=True)
+    
+    # Get affected barangays with their severities
+    alert_severity_by_barangay = {}
+    for alert in active_alerts:
+        for barangay in alert.affected_barangays.all():
+            # Track the highest severity level for each barangay
+            current_severity = alert_severity_by_barangay.get(barangay.id, 0)
+            alert_severity_by_barangay[barangay.id] = max(current_severity, alert.severity_level)
+    
+    # Build barangay data including all barangays
+    for barangay in all_barangays:
+        # Use the highest severity from alerts, or 0 if not affected
+        severity = alert_severity_by_barangay.get(barangay.id, 0)
         
         barangay_data.append({
             'id': barangay.id,
@@ -324,8 +338,33 @@ def get_map_data(request):
             'population': barangay.population,
             'lat': barangay.latitude,
             'lng': barangay.longitude,
-            'severity': highest_severity['severity_level__max'],
+            'severity': severity,
+            # Add extra data
+            'contact_person': barangay.contact_person,
+            'contact_number': barangay.contact_number
         })
+    
+    # If barangay_id is provided, filter data to focus on that barangay
+    if barangay_id:
+        try:
+            # Convert to integer
+            barangay_id = int(barangay_id)
+            
+            # Find the selected barangay
+            selected_barangay = None
+            for b in barangay_data:
+                if b['id'] == barangay_id:
+                    selected_barangay = b
+                    break
+            
+            if selected_barangay:
+                # Filter sensors and zones to those near the selected barangay
+                # This is a simple approximation - in production, you'd use geospatial queries
+                # For demonstration, we'll just focus on the barangay without filtering
+                pass
+        except (ValueError, TypeError):
+            # Invalid barangay_id, ignore filtering
+            pass
     
     map_data = {
         'sensors': sensor_data,
