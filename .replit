@@ -15,6 +15,10 @@ author = "agent"
 task = "workflow.run"
 args = "Django Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Weather Update Service"
+
 [[workflows.workflow]]
 name = "Django Server"
 author = "agent"
@@ -23,6 +27,14 @@ author = "agent"
 task = "shell.exec"
 args = "pip install django djangorestframework dj-database-url psycopg2-binary && python manage.py migrate && python manage.py runserver 0.0.0.0:5000"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Weather Update Service"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python run_weather_update.py"
 
 [deployment]
 run = ["sh", "-c", "pip install django djangorestframework dj-database-url psycopg2-binary && python manage.py migrate && python manage.py runserver 0.0.0.0:5000"]
