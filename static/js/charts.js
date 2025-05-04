@@ -214,33 +214,43 @@ function createChart(canvasId, label, colors) {
                     },
                     ticks: {
                         // For better readability on mobile
-                        maxRotation: 0, // Prevent label rotation
+                        maxRotation: 45, // Allow some rotation for better spacing
                         minRotation: 0,
                         padding: 12, // More padding between labels
                         font: {
                             size: isMobile ? 10 : 12
                         },
-                        maxTicksLimit: isMobile ? 4 : 6, // Further reduce number of ticks to prevent overlap
+                        maxTicksLimit: isMobile ? 5 : 8, // Adjusted to show more dates
                         autoSkip: true,
                         callback: function(value, index, values) {
-                            // Simplified time formatting
+                            // Improved date/time formatting
                             if (typeof value === 'string' && value.includes('-')) {
-                                // Extract just the time part from ISO format
-                                const timePart = value.split('T')[1] || '';
-                                if (timePart) {
-                                    // Just show hour:minute
-                                    return timePart.substring(0, 5); // Take HH:MM part
-                                }
-                                
-                                // If we can't extract a time part, try to use Date object
                                 try {
                                     const date = new Date(value);
                                     if (!isNaN(date.getTime())) {
-                                        const hours = date.getHours();
-                                        const minutes = date.getMinutes();
-                                        return hours + ':' + (minutes < 10 ? '0' : '') + minutes;
+                                        // Check if we have more than 1 day of data
+                                        const chartDays = currentHistoricalPeriod || 1;
+                                        
+                                        if (chartDays >= 7) {
+                                            // For weekly+ data, just show month and day
+                                            return `${date.getMonth()+1}/${date.getDate()}`;
+                                        } else if (chartDays > 1) {
+                                            // For multi-day data, show day and time
+                                            return `${date.getDate()}/${date.getMonth()+1} ${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
+                                        } else {
+                                            // For single day data, show just the time
+                                            return `${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
+                                        }
                                     }
-                                } catch (e) {}
+                                } catch (e) {
+                                    console.warn('Date parsing error:', e);
+                                }
+                                
+                                // If date parsing failed, try to extract just the time
+                                const parts = value.split(' ');
+                                if (parts.length === 2) {
+                                    return parts[1];  // Just return the time part
+                                }
                             }
                             return value;
                         }
