@@ -1,0 +1,376 @@
+/**
+ * Map.js - Interactive flood map functionality
+ * Handles map visualization, risk zones, sensors, and affected barangays
+ */
+
+// Global map variable
+let floodMap;
+
+// Layer groups
+let riskZonesLayer;
+let sensorsLayer;
+let barangaysLayer;
+
+// Active view mode
+let activeMapMode = 'risk-zones';
+
+// Map initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Only initialize if the map container exists
+    const mapContainer = document.getElementById('flood-map');
+    if (!mapContainer) return;
+    
+    // Initialize the map (centered on the Philippines as default)
+    floodMap = L.map('flood-map').setView([12.8797, 121.7740], 6);
+    
+    // Add tile layer (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(floodMap);
+    
+    // Initialize layer groups
+    riskZonesLayer = L.layerGroup().addTo(floodMap);
+    sensorsLayer = L.layerGroup();
+    barangaysLayer = L.layerGroup();
+    
+    // Setup controls
+    setupMapControls();
+    
+    // Load initial data
+    loadMapData();
+    
+    // Refresh map data every 3 minutes
+    setInterval(loadMapData, 3 * 60 * 1000);
+});
+
+/**
+ * Set up map control buttons
+ */
+function setupMapControls() {
+    // Setup toggle buttons
+    document.getElementById('btn-risk-zones').addEventListener('click', function() {
+        setMapMode('risk-zones');
+    });
+    
+    document.getElementById('btn-sensors').addEventListener('click', function() {
+        setMapMode('sensors');
+    });
+    
+    document.getElementById('btn-barangays').addEventListener('click', function() {
+        setMapMode('barangays');
+    });
+}
+
+/**
+ * Set map display mode
+ */
+function setMapMode(mode) {
+    // Update active button
+    document.querySelectorAll('#btn-risk-zones, #btn-sensors, #btn-barangays').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(`btn-${mode}`).classList.add('active');
+    
+    // Update active map mode
+    activeMapMode = mode;
+    
+    // Show/hide appropriate layers
+    floodMap.removeLayer(riskZonesLayer);
+    floodMap.removeLayer(sensorsLayer);
+    floodMap.removeLayer(barangaysLayer);
+    
+    switch(mode) {
+        case 'risk-zones':
+            floodMap.addLayer(riskZonesLayer);
+            break;
+        case 'sensors':
+            floodMap.addLayer(sensorsLayer);
+            break;
+        case 'barangays':
+            floodMap.addLayer(barangaysLayer);
+            break;
+    }
+}
+
+/**
+ * Load map data from API
+ */
+function loadMapData() {
+    fetch('/api/map-data/')
+        .then(response => response.json())
+        .then(data => {
+            // Process flood risk zones
+            processFloodRiskZones(data.zones || []);
+            
+            // Process sensors
+            processSensors(data.sensors || []);
+            
+            // Process affected barangays
+            processBarangays(data.barangays || []);
+            
+            // Update map view if we have data
+            updateMapView(data);
+            
+            // Update last updated timestamp
+            document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
+        })
+        .catch(error => {
+            console.error('Error loading map data:', error);
+        });
+}
+
+/**
+ * Process and display flood risk zones
+ */
+function processFloodRiskZones(zones) {
+    // Clear previous layers
+    riskZonesLayer.clearLayers();
+    
+    // Add each zone to the map
+    zones.forEach(zone => {
+        try {
+            // Parse GeoJSON
+            const geoJson = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+            
+            // Determine color based on severity
+            const color = getSeverityColor(zone.severity);
+            
+            // Create the GeoJSON layer with style
+            const zoneLayer = L.geoJSON(geoJson, {
+                style: {
+                    fillColor: color,
+                    weight: 2,
+                    opacity: 0.8,
+                    color: darkenColor(color, 20),
+                    fillOpacity: 0.35
+                }
+            }).bindPopup(`
+                <strong>${zone.name}</strong><br>
+                Severity: ${getSeverityText(zone.severity)}
+            `);
+            
+            // Add to layer group
+            riskZonesLayer.addLayer(zoneLayer);
+        } catch (e) {
+            console.error('Error processing zone GeoJSON:', e);
+        }
+    });
+}
+
+/**
+ * Process and display sensors
+ */
+function processSensors(sensors) {
+    // Clear previous layers
+    sensorsLayer.clearLayers();
+    
+    // Add each sensor to the map
+    sensors.forEach(sensor => {
+        // Create custom icon based on sensor type
+        const icon = createSensorIcon(sensor);
+        
+        // Add marker with popup
+        const marker = L.marker([sensor.lat, sensor.lng], { icon: icon })
+            .bindPopup(`
+                <strong>${sensor.name}</strong><br>
+                Type: ${formatSensorType(sensor.type)}<br>
+                ${sensor.value !== null ? `Value: ${sensor.value} ${sensor.unit}` : 'No data available'}
+            `)
+            .addTo(sensorsLayer);
+        
+        // Add animation for active sensors
+        if (sensor.value !== null) {
+            marker._icon.classList.add('pulse-icon');
+        }
+    });
+}
+
+/**
+ * Process and display affected barangays
+ */
+function processBarangays(barangays) {
+    // Clear previous layers
+    barangaysLayer.clearLayers();
+    
+    // Add each barangay to the map
+    barangays.forEach(barangay => {
+        // Determine color based on severity
+        const color = getSeverityColor(barangay.severity);
+        
+        // Create custom icon
+        const icon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+        
+        // Add marker with popup
+        L.marker([barangay.lat, barangay.lng], { icon: icon })
+            .bindPopup(`
+                <strong>${barangay.name}</strong><br>
+                Population: ${barangay.population.toLocaleString()}<br>
+                Alert Level: ${getSeverityText(barangay.severity)}
+            `)
+            .addTo(barangaysLayer);
+    });
+}
+
+/**
+ * Update map view based on data
+ */
+function updateMapView(data) {
+    // Determine bounds based on available data
+    let points = [];
+    
+    // Add sensor points
+    if (data.sensors && data.sensors.length > 0) {
+        data.sensors.forEach(sensor => {
+            points.push([sensor.lat, sensor.lng]);
+        });
+    }
+    
+    // Add barangay points
+    if (data.barangays && data.barangays.length > 0) {
+        data.barangays.forEach(barangay => {
+            points.push([barangay.lat, barangay.lng]);
+        });
+    }
+    
+    // Adjust map view if we have points
+    if (points.length > 0) {
+        floodMap.fitBounds(L.latLngBounds(points), {
+            padding: [50, 50],
+            maxZoom: 12
+        });
+    }
+}
+
+/**
+ * Create a sensor icon based on type and value
+ */
+function createSensorIcon(sensor) {
+    let iconHtml;
+    let iconColor;
+    
+    // Determine color based on value if available
+    if (sensor.value !== null) {
+        // Use different colors based on sensor type and value
+        switch (sensor.type) {
+            case 'temperature':
+                iconColor = sensor.value > 30 ? '#dc3545' : (sensor.value > 25 ? '#ffc107' : '#198754');
+                break;
+            case 'humidity':
+                iconColor = sensor.value > 80 ? '#0dcaf0' : (sensor.value > 60 ? '#0d6efd' : '#6c757d');
+                break;
+            case 'rainfall':
+                iconColor = sensor.value > 50 ? '#0d6efd' : (sensor.value > 20 ? '#0dcaf0' : '#6c757d');
+                break;
+            case 'water_level':
+                iconColor = sensor.value > 1.5 ? '#dc3545' : (sensor.value > 1 ? '#ffc107' : '#198754');
+                break;
+            case 'wind_speed':
+                iconColor = sensor.value > 40 ? '#dc3545' : (sensor.value > 20 ? '#ffc107' : '#198754');
+                break;
+            default:
+                iconColor = '#6c757d';
+        }
+    } else {
+        // Default color for sensors without values
+        iconColor = '#6c757d';
+    }
+    
+    // Create icon HTML based on sensor type
+    switch (sensor.type) {
+        case 'temperature':
+            iconHtml = `<i class="fas fa-thermometer-half" style="color: ${iconColor};"></i>`;
+            break;
+        case 'humidity':
+            iconHtml = `<i class="fas fa-tint" style="color: ${iconColor};"></i>`;
+            break;
+        case 'rainfall':
+            iconHtml = `<i class="fas fa-cloud-rain" style="color: ${iconColor};"></i>`;
+            break;
+        case 'water_level':
+            iconHtml = `<i class="fas fa-water" style="color: ${iconColor};"></i>`;
+            break;
+        case 'wind_speed':
+            iconHtml = `<i class="fas fa-wind" style="color: ${iconColor};"></i>`;
+            break;
+        default:
+            iconHtml = `<i class="fas fa-broadcast-tower" style="color: ${iconColor};"></i>`;
+    }
+    
+    return L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color: white; width: 30px; height: 30px; border-radius: 50%; border: 2px solid ${iconColor}; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 8px rgba(0,0,0,0.3);">${iconHtml}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+    });
+}
+
+/**
+ * Helper function to get color based on severity level
+ */
+function getSeverityColor(severity) {
+    switch (parseInt(severity)) {
+        case 5: return '#7F0000'; // Catastrophic
+        case 4: return '#DC3545'; // Emergency
+        case 3: return '#FD7E14'; // Warning
+        case 2: return '#FFC107'; // Watch
+        case 1: return '#0DCAF0'; // Advisory
+        default: return '#198754'; // Normal
+    }
+}
+
+/**
+ * Helper function to get severity text
+ */
+function getSeverityText(severity) {
+    switch (parseInt(severity)) {
+        case 5: return 'Catastrophic';
+        case 4: return 'Emergency';
+        case 3: return 'Warning';
+        case 2: return 'Watch';
+        case 1: return 'Advisory';
+        default: return 'Normal';
+    }
+}
+
+/**
+ * Format sensor type for display
+ */
+function formatSensorType(type) {
+    if (!type) return 'Unknown';
+    
+    // Replace underscores with spaces and capitalize
+    return type.replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+/**
+ * Darken a hex color by percentage
+ */
+function darkenColor(hex, percent) {
+    // Remove the # if present
+    hex = hex.replace('#', '');
+    
+    // Convert to RGB
+    let r = parseInt(hex.substring(0, 2), 16);
+    let g = parseInt(hex.substring(2, 4), 16);
+    let b = parseInt(hex.substring(4, 6), 16);
+    
+    // Darken
+    r = Math.floor(r * (100 - percent) / 100);
+    g = Math.floor(g * (100 - percent) / 100);
+    b = Math.floor(b * (100 - percent) / 100);
+    
+    // Convert back to hex
+    r = r.toString(16).padStart(2, '0');
+    g = g.toString(16).padStart(2, '0');
+    b = b.toString(16).padStart(2, '0');
+    
+    return `#${r}${g}${b}`;
+}

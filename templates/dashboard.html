@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %} - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="row mb-4">
+        <!-- Temperature Gauge -->
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-temperature-high me-2"></i>Temperature
+                    </h5>
+                    <div class="gauge-container">
+                        <div class="gauge" id="temperature-gauge">
+                            <div class="gauge-value">--</div>
+                            <div class="gauge-label">°C</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small" id="temp-updated">Last updated: --</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Humidity Percentage -->
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-tint me-2"></i>Humidity
+                    </h5>
+                    <div class="gauge-container">
+                        <div class="gauge" id="humidity-gauge">
+                            <div class="gauge-value">--</div>
+                            <div class="gauge-label">%</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small" id="humidity-updated">Last updated: --</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rainfall Indicator -->
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-cloud-rain me-2"></i>Rainfall
+                    </h5>
+                    <div class="gauge-container">
+                        <div class="gauge" id="rainfall-gauge">
+                            <div class="gauge-value">--</div>
+                            <div class="gauge-label">mm</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small" id="rainfall-updated">Last updated: --</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Water Level Meter -->
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-water me-2"></i>Water Level
+                    </h5>
+                    <div class="gauge-container">
+                        <div class="gauge" id="water-level-gauge">
+                            <div class="gauge-value">--</div>
+                            <div class="gauge-label">m</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small" id="water-level-updated">Last updated: --</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Wind Speed Dial -->
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-wind me-2"></i>Wind Speed
+                    </h5>
+                    <div class="gauge-container">
+                        <div class="gauge" id="wind-speed-gauge">
+                            <div class="gauge-value">--</div>
+                            <div class="gauge-label">km/h</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small" id="wind-speed-updated">Last updated: --</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alerts Status -->
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Alert Status
+                    </h5>
+                    <div class="gauge-container">
+                        <div id="alert-status" class="alert-status">
+                            <div id="status-icon" class="status-icon">
+                                <i class="fas fa-check-circle fa-3x text-success"></i>
+                            </div>
+                            <div id="status-text" class="status-text">Normal</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small" id="alerts-count">No active alerts</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <!-- Map Visualization -->
+        <div class="col-lg-7 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-map-marked-alt me-2"></i>Flood Risk Map
+                        </h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-light active" id="btn-risk-zones">Risk Zones</button>
+                            <button type="button" class="btn btn-light" id="btn-sensors">Sensors</button>
+                            <button type="button" class="btn btn-light" id="btn-barangays">Barangays</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="flood-map" style="height: 500px;"></div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="map-legend">
+                                <span class="me-3"><i class="fas fa-circle text-success me-1"></i> Low Risk</span>
+                                <span class="me-3"><i class="fas fa-circle text-warning me-1"></i> Medium Risk</span>
+                                <span class="me-3"><i class="fas fa-circle text-danger me-1"></i> High Risk</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <small class="text-muted">Last updated: <span id="map-last-updated">--</span></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Charts -->
+        <div class="col-lg-5 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>Environmental Data Trends
+                        </h5>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light dropdown-toggle" type="button" id="chartDropdown" data-bs-toggle="dropdown">
+                                24 Hours
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="chartDropdown">
+                                <li><a class="dropdown-item chart-period" data-days="1" href="#">24 Hours</a></li>
+                                <li><a class="dropdown-item chart-period" data-days="7" href="#">7 Days</a></li>
+                                <li><a class="dropdown-item chart-period" data-days="30" href="#">30 Days</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="chartTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="temperature-tab" data-bs-toggle="tab" data-bs-target="#temperature-chart-panel" type="button" role="tab">Temperature</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="rainfall-tab" data-bs-toggle="tab" data-bs-target="#rainfall-chart-panel" type="button" role="tab">Rainfall</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="water-level-tab" data-bs-toggle="tab" data-bs-target="#water-level-chart-panel" type="button" role="tab">Water Level</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3" id="chartTabsContent">
+                        <div class="tab-pane fade show active" id="temperature-chart-panel" role="tabpanel">
+                            <canvas id="temperature-chart" height="300"></canvas>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button class="btn btn-sm btn-outline-secondary export-chart" data-chart="temperature-chart">
+                                    <i class="fas fa-download me-1"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="rainfall-chart-panel" role="tabpanel">
+                            <canvas id="rainfall-chart" height="300"></canvas>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button class="btn btn-sm btn-outline-secondary export-chart" data-chart="rainfall-chart">
+                                    <i class="fas fa-download me-1"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="water-level-chart-panel" role="tabpanel">
+                            <canvas id="water-level-chart" height="300"></canvas>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button class="btn btn-sm btn-outline-secondary export-chart" data-chart="water-level-chart">
+                                    <i class="fas fa-download me-1"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Flood Alerts Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bell me-2"></i>Active Flood Alerts
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="alerts-container">
+                        <div class="text-center py-5 text-muted" id="no-alerts">
+                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                            <h5>No active alerts at this time</h5>
+                            <p>The system is monitoring environmental conditions continuously.</p>
+                        </div>
+                        
+                        <div id="alerts-list" class="d-none">
+                            <!-- Alerts will be populated here by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/map.js"></script>
+{% endblock %}

@@ -1,0 +1,64 @@
+from rest_framework import serializers
+from core.models import (
+    Sensor, SensorData, Barangay, FloodRiskZone, 
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
+)
+
+class SensorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Sensor
+        fields = '__all__'
+
+class SensorDataSerializer(serializers.ModelSerializer):
+    sensor_name = serializers.ReadOnlyField(source='sensor.name')
+    sensor_type = serializers.ReadOnlyField(source='sensor.sensor_type')
+    
+    class Meta:
+        model = SensorData
+        fields = ['id', 'sensor', 'sensor_name', 'sensor_type', 'value', 'timestamp']
+
+class BarangaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Barangay
+        fields = '__all__'
+
+class FloodRiskZoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FloodRiskZone
+        fields = '__all__'
+
+class FloodAlertSerializer(serializers.ModelSerializer):
+    issued_by_username = serializers.ReadOnlyField(source='issued_by.username')
+    
+    class Meta:
+        model = FloodAlert
+        fields = ['id', 'title', 'description', 'severity_level', 'active', 
+                  'predicted_flood_time', 'issued_at', 'updated_at', 
+                  'affected_barangays', 'issued_by', 'issued_by_username']
+        read_only_fields = ['issued_at', 'updated_at', 'issued_by']
+
+class ThresholdSettingSerializer(serializers.ModelSerializer):
+    last_updated_by_username = serializers.ReadOnlyField(source='last_updated_by.username')
+    
+    class Meta:
+        model = ThresholdSetting
+        fields = ['id', 'parameter', 'advisory_threshold', 'watch_threshold', 
+                  'warning_threshold', 'emergency_threshold', 'catastrophic_threshold', 
+                  'unit', 'created_at', 'updated_at', 'last_updated_by', 
+                  'last_updated_by_username']
+        read_only_fields = ['created_at', 'updated_at', 'last_updated_by']
+
+class NotificationLogSerializer(serializers.ModelSerializer):
+    alert_title = serializers.ReadOnlyField(source='alert.title')
+    
+    class Meta:
+        model = NotificationLog
+        fields = ['id', 'alert', 'alert_title', 'notification_type', 
+                  'recipient', 'sent_at', 'status']
+
+class EmergencyContactSerializer(serializers.ModelSerializer):
+    barangay_name = serializers.ReadOnlyField(source='barangay.name')
+    
+    class Meta:
+        model = EmergencyContact
+        fields = ['id', 'name', 'role', 'phone', 'email', 'barangay', 'barangay_name']
