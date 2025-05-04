@@ -892,80 +892,8 @@ function displayMunicipalityBarangays() {
     municipalityBarangayCards.innerHTML = cardsHtml;
 }
 
-function refreshAllDataForNewLocation() {
-    console.log('========== LOCATION CHANGE DETECTED ==========');
-    console.log('Refreshing all data for new location filter:');
-    console.log('Selected Municipality:', window.selectedMunicipality ? 
-        `${window.selectedMunicipality.name} (ID: ${window.selectedMunicipality.id})` : 'All Municipalities');
-    console.log('Selected Barangay:', window.selectedBarangay ? 
-        `${window.selectedBarangay.name} (ID: ${window.selectedBarangay.id})` : 'All Barangays');
-    console.log('============================================');
-    
-    // Update any UI location displays
-    const locationDisplays = document.querySelectorAll('#current-location-display');
-    locationDisplays.forEach(display => {
-        let locationText = 'All Areas';
-        
-        if (window.selectedMunicipality) {
-            locationText = window.selectedMunicipality.name;
-            
-            if (window.selectedBarangay) {
-                locationText += ' > ' + window.selectedBarangay.name;
-            }
-        }
-        
-        display.textContent = locationText;
-    });
-    
-    // Refresh map data with location filters
-    console.log('Refreshing map with location filters...');
-    loadMapData();
-    
-    // Display barangays for the selected municipality
-    displayMunicipalityBarangays();
-    
-    // Trigger dashboard chart updates if we're on the dashboard
-    if (typeof updateAllCharts === 'function') {
-        console.log('Updating all charts with new location data...');
-        updateAllCharts();
-    }
-    
-    // Update prediction data if we're on the prediction page
-    if (typeof updatePredictionModel === 'function') {
-        console.log('Updating prediction model with new location data...');
-        updatePredictionModel();
-    }
-    
-    // Update any other location-specific data
-    // For example, refresh alerts
-    const alertsContainer = document.getElementById('alerts-container');
-    if (alertsContainer) {
-        if (typeof loadActiveAlerts === 'function') {
-            console.log('Updating alerts with new location data');
-            loadActiveAlerts();
-        }
-    }
-    
-    // Update sensor data if we're on the dashboard
-    if (typeof updateSensorData === 'function') {
-        console.log('Updating sensor data with new location data...');
-        updateSensorData();
-    }
-    
-    // Update active alerts (for all pages that have them)
-    if (typeof checkActiveAlerts === 'function') {
-        console.log('Updating active alerts with new location data...');
-        checkActiveAlerts();
-    }
-    
-    // Set a global indication that the location has changed (for other components to check)
-    window.locationChanged = true;
-    
-    // Reset the flag after a brief delay (giving components time to check)
-    setTimeout(() => {
-        window.locationChanged = false;
-    }, 500);
-}
+// NOTE: A duplicate definition of refreshAllDataForNewLocation was removed from here
+// to fix the "Maximum call stack size exceeded" error. Only the implementation at line ~618 is used.
 
 /**
  * Create a sensor icon based on type and value
