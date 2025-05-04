@@ -224,7 +224,30 @@ function loadMapData() {
         document.getElementById('map-last-updated').textContent = 'Loading data...';
     }
     
-    fetch('/api/map-data/')
+    // Construct URL with location filters
+    let url = '/api/map-data/';
+    const params = [];
+    
+    // Add municipality filter if selected
+    if (window.selectedMunicipality) {
+        params.push(`municipality_id=${window.selectedMunicipality.id}`);
+        console.log(`[Map] Adding municipality filter: ${window.selectedMunicipality.name}`);
+    }
+    
+    // Add barangay filter if selected
+    if (window.selectedBarangay) {
+        params.push(`barangay_id=${window.selectedBarangay.id}`);
+        console.log(`[Map] Adding barangay filter: ${window.selectedBarangay.name}`);
+    }
+    
+    // Add parameters to URL if any
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+    
+    console.log(`[Map] Fetching map data with URL: ${url}`);
+    
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
@@ -232,7 +255,7 @@ function loadMapData() {
             return response.json();
         })
         .then(data => {
-            console.log('Map data received:', data);
+            console.log(`[Map] Received map data with ${data.barangays ? data.barangays.length : 0} barangays, ${data.sensors ? data.sensors.length : 0} sensors, and ${data.zones ? data.zones.length : 0} risk zones`);
             
             // Clear existing layers
             riskZonesLayer.clearLayers();
@@ -424,22 +447,43 @@ function updateMapView(data) {
  * This centralizes data refreshing when location changes
  */
 function refreshAllDataForNewLocation() {
-    console.log('Refreshing all data for new location...');
-    console.log('Selected Municipality:', window.selectedMunicipality ? window.selectedMunicipality.name : 'None');
-    console.log('Selected Barangay:', window.selectedBarangay ? window.selectedBarangay.name : 'None');
+    console.log('========== LOCATION CHANGE DETECTED ==========');
+    console.log('Refreshing all data for new location filter:');
+    console.log('Selected Municipality:', window.selectedMunicipality ? 
+        `${window.selectedMunicipality.name} (ID: ${window.selectedMunicipality.id})` : 'All Municipalities');
+    console.log('Selected Barangay:', window.selectedBarangay ? 
+        `${window.selectedBarangay.name} (ID: ${window.selectedBarangay.id})` : 'All Barangays');
+    console.log('============================================');
     
-    // Refresh map data
+    // Update any UI location displays
+    const locationDisplays = document.querySelectorAll('#current-location-display');
+    locationDisplays.forEach(display => {
+        let locationText = 'All Areas';
+        
+        if (window.selectedMunicipality) {
+            locationText = window.selectedMunicipality.name;
+            
+            if (window.selectedBarangay) {
+                locationText += ' > ' + window.selectedBarangay.name;
+            }
+        }
+        
+        display.textContent = locationText;
+    });
+    
+    // Refresh map data with location filters
+    console.log('Refreshing map with location filters...');
     loadMapData();
     
     // Trigger dashboard chart updates if we're on the dashboard
     if (typeof updateAllCharts === 'function') {
-        console.log('Updating all charts with new location data');
+        console.log('Updating all charts with new location data...');
         updateAllCharts();
     }
     
     // Update prediction data if we're on the prediction page
     if (typeof updatePredictionModel === 'function') {
-        console.log('Updating prediction model with new location data');
+        console.log('Updating prediction model with new location data...');
         updatePredictionModel();
     }
     
