@@ -24,7 +24,9 @@ from flood_monitoring.ml.advanced_algorithms import (
     SVMFloodPredictor,
     TimeSeriesForecaster,
     SpatialAnalyzer,
-    LSTMFloodPredictor
+    LSTMFloodPredictor,
+    MultiCriteriaDecisionAnalyzer,
+    DynamicTimeWarpingAnalyzer
 )
 
 # Import original model for comparison
@@ -307,6 +309,170 @@ def train_and_evaluate_spatial_models(data):
         results['IDW'] = {'sample_values': interpolated.mean()}
     except Exception as e:
         logger.warning(f"IDW interpolation failed: {str(e)}")
+    
+    return results
+
+
+def train_and_evaluate_optimization_algorithms(data):
+    """Train and evaluate optimization algorithms"""
+    logger.info("\n====== Optimization Algorithms ======")
+    results = {}
+    
+    # 1. Multi-criteria Decision Analysis
+    logger.info("\n----- Multi-criteria Decision Analysis -----")
+    try:
+        # Initialize MCDA
+        mcda = MultiCriteriaDecisionAnalyzer()
+        
+        # Define criteria with weights and direction
+        # - 'max' means higher values are better
+        # - 'min' means lower values are better
+        criteria = {
+            'population_affected': {'weight': 0.35, 'direction': 'min'},  # Minimize affected population
+            'response_time': {'weight': 0.25, 'direction': 'min'},  # Minimize response time
+            'resource_availability': {'weight': 0.20, 'direction': 'max'},  # Maximize resource availability
+            'accessibility': {'weight': 0.15, 'direction': 'max'},  # Maximize route accessibility
+            'elevation': {'weight': 0.05, 'direction': 'max'}  # Maximize elevation (flood safety)
+        }
+        mcda.add_criteria(criteria)
+        
+        # Define evacuation alternatives
+        # In a real scenario, these would be based on real route data
+        alternatives = {
+            'route_a': {
+                'population_affected': 5000,
+                'response_time': 15,        # minutes
+                'resource_availability': 8,  # scale 1-10
+                'accessibility': 7,         # scale 1-10
+                'elevation': 45            # meters
+            },
+            'route_b': {
+                'population_affected': 3500,
+                'response_time': 20,
+                'resource_availability': 9,
+                'accessibility': 6,
+                'elevation': 60
+            },
+            'route_c': {
+                'population_affected': 7500,
+                'response_time': 10,
+                'resource_availability': 5,
+                'accessibility': 9,
+                'elevation': 30
+            },
+            'route_d': {
+                'population_affected': 4000,
+                'response_time': 25,
+                'resource_availability': 10,
+                'accessibility': 8,
+                'elevation': 55
+            }
+        }
+        mcda.add_alternatives(alternatives)
+        
+        # Process and rank the alternatives
+        mcda.normalize_criteria()
+        mcda.calculate_weighted_scores()
+        rankings = mcda.rank_alternatives()
+        best_route = mcda.get_best_alternative()
+        
+        logger.info(f"MCDA Rankings (best to worst): {rankings}")
+        logger.info(f"Best evacuation route: {best_route[0]} with score {best_route[1]:.4f}")
+        
+        # Save the model
+        mcda.save()
+        
+        results['MCDA'] = {
+            'best_route': best_route[0], 
+            'best_score': best_route[1],
+            'all_rankings': {route: score for route, score in rankings}
+        }
+    except Exception as e:
+        logger.warning(f"Multi-criteria Decision Analysis failed: {str(e)}")
+    
+    # 2. Dynamic Time Warping
+    logger.info("\n----- Dynamic Time Warping Analysis -----")
+    try:
+        # Initialize DTW analyzer
+        dtw = DynamicTimeWarpingAnalyzer()
+        
+        # Create synthetic reference patterns for floods
+        # In a real scenario, these would be actual historical flood patterns
+        # Pattern 1: Rapid rise, slow recession (flash flood)
+        flash_flood = np.concatenate([
+            np.linspace(0.5, 3.0, 12),  # Rapid rise
+            np.linspace(3.0, 2.8, 6),   # Brief plateau
+            np.linspace(2.8, 0.8, 18)   # Slow recession
+        ])
+        
+        # Pattern 2: Gradual rise and fall (prolonged flood)
+        prolonged_flood = np.concatenate([
+            np.linspace(0.5, 2.5, 18),   # Gradual rise
+            np.linspace(2.5, 2.4, 12),   # Extended plateau
+            np.linspace(2.4, 0.6, 18)    # Gradual recession
+        ])
+        
+        # Pattern 3: Double-peak flood (complex event)
+        double_peak = np.concatenate([
+            np.linspace(0.5, 2.0, 10),   # First rise
+            np.linspace(2.0, 1.5, 5),    # First recession
+            np.linspace(1.5, 2.8, 8),    # Second, larger rise
+            np.linspace(2.8, 2.7, 4),    # Brief plateau
+            np.linspace(2.7, 0.7, 15)    # Final recession
+        ])
+        
+        # Add these patterns to the DTW analyzer
+        dtw.add_reference_pattern('flash_flood', flash_flood, {
+            'description': 'Rapid rise, slow fall characteristic of flash floods',
+            'average_duration': '36 hours',
+            'typical_max_height': '3.0 meters',
+            'hazard_level': 'High'
+        })
+        
+        dtw.add_reference_pattern('prolonged_flood', prolonged_flood, {
+            'description': 'Gradual rise and fall, typical of prolonged rainfall',
+            'average_duration': '48 hours',
+            'typical_max_height': '2.5 meters',
+            'hazard_level': 'Medium'
+        })
+        
+        dtw.add_reference_pattern('double_peak', double_peak, {
+            'description': 'Complex event with two distinct peaks',
+            'average_duration': '42 hours',
+            'typical_max_height': '2.8 meters',
+            'hazard_level': 'Very High'
+        })
+        
+        # Set warping window to improve performance
+        dtw.set_window_size(10)
+        
+        # Create a test scenario (current event unfolding)
+        # In a real application, this would be real-time water level data
+        current_pattern = np.concatenate([
+            np.linspace(0.5, 1.8, 8),    # Initial rise
+            np.linspace(1.8, 1.6, 4),    # Small dip
+            np.linspace(1.6, 2.2, 6)     # Second rise (ongoing)
+        ])
+        
+        # Find similar historical patterns
+        similar_patterns = dtw.find_similar_patterns(current_pattern, top_n=3)
+        
+        # Calculate similarity scores
+        similarity_scores = dtw.calculate_similarity_score(current_pattern)
+        
+        logger.info(f"DTW Analysis - Most similar historical pattern: {similar_patterns[0]['pattern_name']}")
+        logger.info(f"Similarity scores: {similarity_scores}")
+        
+        # Save the model
+        dtw.save()
+        
+        results['DTW'] = {
+            'most_similar_pattern': similar_patterns[0]['pattern_name'],
+            'similarity_scores': similarity_scores,
+            'pattern_metadata': similar_patterns[0]['metadata']
+        }
+    except Exception as e:
+        logger.warning(f"Dynamic Time Warping Analysis failed: {str(e)}")
     
     return results
 

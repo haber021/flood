@@ -709,3 +709,350 @@ class LSTMFloodPredictor:
         logger.info(f"LSTM model loaded from {model_path}")
         
         return self
+
+
+class MultiCriteriaDecisionAnalyzer:
+    """Multi-criteria Decision Analysis for evacuation routing and resource allocation
+    
+    This class implements Multi-criteria Decision Analysis (MCDA) techniques
+    to optimize evacuation routes and resource allocation during flood events
+    by considering multiple factors such as population density, road accessibility,
+    elevation, distance to evacuation centers, and flood risk levels.
+    """
+    
+    def __init__(self):
+        """Initialize the MCDA analyzer"""
+        self.criteria = {}
+        self.alternatives = {}
+        self.weights = {}
+        self.normalized_matrix = None
+        self.weighted_matrix = None
+        self.rankings = None
+        
+    def add_criteria(self, criteria_dict):
+        """Add decision criteria with their weights and optimization direction
+        
+        Args:
+            criteria_dict (dict): Dictionary of criteria with their weights and direction
+                e.g., {'population': {'weight': 0.3, 'direction': 'max'},
+                       'flood_risk': {'weight': 0.4, 'direction': 'min'},
+                       'distance': {'weight': 0.2, 'direction': 'min'},
+                       'elevation': {'weight': 0.1, 'direction': 'max'}}
+        """
+        self.criteria = criteria_dict
+        # Extract weights for convenience
+        self.weights = {criterion: data['weight'] for criterion, data in criteria_dict.items()}
+        return self
+    
+    def add_alternatives(self, alternatives_dict):
+        """Add alternatives with their criteria values
+        
+        Args:
+            alternatives_dict (dict): Dictionary of alternatives with their criteria values
+                e.g., {'route_1': {'population': 5000, 'flood_risk': 0.8, 'distance': 2.5, 'elevation': 50},
+                       'route_2': {'population': 3000, 'flood_risk': 0.4, 'distance': 3.2, 'elevation': 80}}
+        """
+        self.alternatives = alternatives_dict
+        return self
+    
+    def normalize_criteria(self):
+        """Normalize criteria values to ensure comparability across different scales"""
+        if not self.criteria or not self.alternatives:
+            raise ValueError("Criteria and alternatives must be added before normalization")
+        
+        # Initialize normalized matrix
+        normalized = {}
+        for alt_name in self.alternatives.keys():
+            normalized[alt_name] = {}
+        
+        # Normalize each criterion
+        for criterion, criterion_data in self.criteria.items():
+            # Extract values for this criterion across all alternatives
+            values = [alt_data[criterion] for alt_data in self.alternatives.values() if criterion in alt_data]
+            
+            if not values:
+                continue
+                
+            # Determine normalization approach based on optimization direction
+            max_val = max(values)
+            min_val = min(values)
+            
+            # Skip if all values are identical (prevent division by zero)
+            if max_val == min_val:
+                for alt_name, alt_data in self.alternatives.items():
+                    if criterion in alt_data:
+                        normalized[alt_name][criterion] = 1.0
+                continue
+            
+            # Normalize based on optimization direction
+            for alt_name, alt_data in self.alternatives.items():
+                if criterion not in alt_data:
+                    continue
+                
+                value = alt_data[criterion]
+                if criterion_data['direction'] == 'max':
+                    # For criteria to maximize (higher is better)
+                    normalized[alt_name][criterion] = (value - min_val) / (max_val - min_val)
+                else:
+                    # For criteria to minimize (lower is better)
+                    normalized[alt_name][criterion] = (max_val - value) / (max_val - min_val)
+        
+        self.normalized_matrix = normalized
+        return self
+    
+    def calculate_weighted_scores(self):
+        """Calculate weighted scores for each alternative"""
+        if self.normalized_matrix is None:
+            self.normalize_criteria()
+        
+        weighted = {}
+        for alt_name, norm_scores in self.normalized_matrix.items():
+            weighted[alt_name] = {}
+            for criterion, norm_value in norm_scores.items():
+                if criterion in self.weights:
+                    weighted[alt_name][criterion] = norm_value * self.weights[criterion]
+        
+        self.weighted_matrix = weighted
+        return self
+    
+    def rank_alternatives(self):
+        """Rank alternatives based on weighted scores"""
+        if self.weighted_matrix is None:
+            self.calculate_weighted_scores()
+        
+        # Calculate total score for each alternative
+        total_scores = {}
+        for alt_name, weighted_scores in self.weighted_matrix.items():
+            total_scores[alt_name] = sum(weighted_scores.values())
+        
+        # Sort alternatives by total score (descending)
+        ranked_alternatives = sorted(total_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        self.rankings = ranked_alternatives
+        return self.rankings
+    
+    def get_best_alternative(self):
+        """Get the highest ranked alternative"""
+        if self.rankings is None:
+            self.rank_alternatives()
+        
+        if not self.rankings:
+            return None
+            
+        return self.rankings[0]
+    
+    def save(self, filename='mcda_model.joblib'):
+        """Save the MCDA model parameters"""
+        if not os.path.exists(MODEL_DIR):
+            os.makedirs(MODEL_DIR)
+        
+        model_path = os.path.join(MODEL_DIR, filename)
+        model_data = {
+            'criteria': self.criteria,
+            'weights': self.weights,
+            'normalized_matrix': self.normalized_matrix,
+            'weighted_matrix': self.weighted_matrix,
+            'rankings': self.rankings
+        }
+        
+        joblib.dump(model_data, model_path)
+        logger.info(f"MCDA model saved to {model_path}")
+        
+        return model_path
+    
+    def load(self, filename='mcda_model.joblib'):
+        """Load the MCDA model parameters"""
+        model_path = os.path.join(MODEL_DIR, filename)
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found at {model_path}")
+        
+        model_data = joblib.load(model_path)
+        self.criteria = model_data['criteria']
+        self.weights = model_data['weights']
+        self.normalized_matrix = model_data['normalized_matrix']
+        self.weighted_matrix = model_data['weighted_matrix']
+        self.rankings = model_data['rankings']
+        
+        logger.info(f"MCDA model loaded from {model_path}")
+        
+        return self
+
+
+class DynamicTimeWarpingAnalyzer:
+    """Dynamic Time Warping for comparing temporal patterns in flood data
+    
+    This class implements Dynamic Time Warping (DTW) to compare time series patterns
+    between historical flood events and current conditions, identifying similar
+    patterns that may indicate increased flood risk.
+    """
+    
+    def __init__(self):
+        """Initialize the DTW analyzer"""
+        self.reference_patterns = {}
+        self.window_size = None
+        self.distance_metric = 'euclidean'
+    
+    def add_reference_pattern(self, pattern_name, time_series_data, metadata=None):
+        """Add a reference time series pattern
+        
+        Args:
+            pattern_name (str): Unique identifier for this pattern
+            time_series_data (array-like): The time series values
+            metadata (dict, optional): Additional information about this pattern
+        """
+        self.reference_patterns[pattern_name] = {
+            'data': np.array(time_series_data),
+            'metadata': metadata or {}
+        }
+        return self
+    
+    def set_window_size(self, window_size):
+        """Set the warping window size
+        
+        A smaller window size restricts the warping path, which can improve performance
+        and prevent pathological alignments.
+        
+        Args:
+            window_size (int): Maximum allowed deviation from the diagonal path
+        """
+        self.window_size = window_size
+        return self
+    
+    def _dtw_distance(self, series1, series2, window=None):
+        """Calculate DTW distance between two time series
+        
+        Args:
+            series1 (array-like): First time series
+            series2 (array-like): Second time series
+            window (int, optional): Warping window size
+            
+        Returns:
+            float: DTW distance between the series
+        """
+        # Convert to numpy arrays
+        s1 = np.array(series1)
+        s2 = np.array(series2)
+        
+        # Get sequence lengths
+        n, m = len(s1), len(s2)
+        
+        # Set window size
+        w = max(window if window else 0, abs(n-m))
+        
+        # Initialize cost matrix with infinity
+        dtw_matrix = np.full((n+1, m+1), np.inf)
+        dtw_matrix[0, 0] = 0
+        
+        # Fill the cost matrix
+        for i in range(1, n+1):
+            for j in range(max(1, i-w), min(m+1, i+w+1)):
+                if self.distance_metric == 'euclidean':
+                    cost = (s1[i-1] - s2[j-1])**2
+                else:  # Default to Manhattan distance
+                    cost = abs(s1[i-1] - s2[j-1])
+                
+                # Get minimum of three adjacent cells
+                dtw_matrix[i, j] = cost + min(dtw_matrix[i-1, j],      # insertion
+                                             dtw_matrix[i, j-1],      # deletion
+                                             dtw_matrix[i-1, j-1])    # match
+        
+        # Return the final DTW distance
+        return np.sqrt(dtw_matrix[n, m]) if self.distance_metric == 'euclidean' else dtw_matrix[n, m]
+    
+    def find_similar_patterns(self, query_series, top_n=3):
+        """Find the most similar reference patterns to the query time series
+        
+        Args:
+            query_series (array-like): The time series to compare against references
+            top_n (int): Number of top matches to return
+            
+        Returns:
+            list: Top N matching patterns with their distances and metadata
+        """
+        if not self.reference_patterns:
+            raise ValueError("No reference patterns added. Use add_reference_pattern() first.")
+        
+        # Calculate DTW distance to each reference pattern
+        results = []
+        for pattern_name, pattern_data in self.reference_patterns.items():
+            distance = self._dtw_distance(query_series, pattern_data['data'], self.window_size)
+            results.append({
+                'pattern_name': pattern_name,
+                'distance': distance,
+                'metadata': pattern_data['metadata']
+            })
+        
+        # Sort by distance (ascending) and return top N
+        results.sort(key=lambda x: x['distance'])
+        return results[:top_n]
+    
+    def calculate_similarity_score(self, query_series, normalize=True):
+        """Calculate a normalized similarity score based on DTW distance
+        
+        Args:
+            query_series (array-like): The time series to compare against references
+            normalize (bool): Whether to normalize the score to 0-100 range
+            
+        Returns:
+            dict: Similarity scores for each reference pattern
+        """
+        if not self.reference_patterns:
+            raise ValueError("No reference patterns added. Use add_reference_pattern() first.")
+        
+        # Calculate DTW distance to each reference pattern
+        distances = {}
+        for pattern_name, pattern_data in self.reference_patterns.items():
+            distances[pattern_name] = self._dtw_distance(query_series, pattern_data['data'], self.window_size)
+        
+        # Calculate similarity scores (invert distances)
+        if normalize and distances:
+            # Find max and min distances for normalization
+            max_dist = max(distances.values())
+            min_dist = min(distances.values())
+            
+            # Normalize to 0-100 range (100 = most similar)
+            if max_dist > min_dist:
+                similarity_scores = {pattern: 100 * (1 - (dist - min_dist) / (max_dist - min_dist))
+                                  for pattern, dist in distances.items()}
+            else:
+                similarity_scores = {pattern: 100 for pattern in distances.keys()}
+        else:
+            # Simple inversion (smaller distance = higher similarity)
+            max_dist = max(distances.values()) if distances else 1
+            similarity_scores = {pattern: 1 / (dist + 0.001) for pattern, dist in distances.items()}
+        
+        return similarity_scores
+    
+    def save(self, filename='dtw_model.joblib'):
+        """Save the DTW model parameters"""
+        if not os.path.exists(MODEL_DIR):
+            os.makedirs(MODEL_DIR)
+        
+        model_path = os.path.join(MODEL_DIR, filename)
+        model_data = {
+            'reference_patterns': self.reference_patterns,
+            'window_size': self.window_size,
+            'distance_metric': self.distance_metric
+        }
+        
+        joblib.dump(model_data, model_path)
+        logger.info(f"DTW model saved to {model_path}")
+        
+        return model_path
+    
+    def load(self, filename='dtw_model.joblib'):
+        """Load the DTW model parameters"""
+        model_path = os.path.join(MODEL_DIR, filename)
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found at {model_path}")
+        
+        model_data = joblib.load(model_path)
+        self.reference_patterns = model_data['reference_patterns']
+        self.window_size = model_data['window_size']
+        self.distance_metric = model_data['distance_metric']
+        
+        logger.info(f"DTW model loaded from {model_path}")
+        
+        return self
