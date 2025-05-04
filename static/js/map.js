@@ -14,9 +14,9 @@ let barangaysLayer;
 // Active view mode
 let activeMapMode = 'risk-zones';
 
-// Selected municipality and barangay
-let selectedMunicipality = null;
-let selectedBarangay = null;
+// Selected municipality and barangay - global variables to be used in all modules
+window.selectedMunicipality = null;
+window.selectedBarangay = null;
 
 // Store all data
 let allMunicipalities = [];
@@ -60,10 +60,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Find the selected municipality object
                 const municipality = allMunicipalities.find(m => m.id.toString() === selectedId);
                 if (municipality) {
-                    selectedMunicipality = municipality;
+                    window.selectedMunicipality = municipality;
                     // Clear barangay selection when municipality changes
                     document.getElementById('barangay-selector').value = '';
-                    selectedBarangay = null;
+                    window.selectedBarangay = null;
                     resetBarangayHighlights();
                     document.getElementById('focus-selected-barangay').disabled = true;
                     // Filter barangays by municipality
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else {
                 // Clear selection
-                selectedMunicipality = null;
+                window.selectedMunicipality = null;
                 // Show all barangays
                 setupBarangaySelector();
                 // Reset map to default view
@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Find the selected barangay object
                 const barangay = allBarangays.find(b => b.id.toString() === selectedId);
                 if (barangay) {
-                    selectedBarangay = barangay;
+                    window.selectedBarangay = barangay;
                     highlightSelectedBarangay(barangay);
                     document.getElementById('focus-selected-barangay').disabled = false;
                     
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else {
                 // Clear selection
-                selectedBarangay = null;
+                window.selectedBarangay = null;
                 resetBarangayHighlights();
                 document.getElementById('focus-selected-barangay').disabled = true;
                 
@@ -425,17 +425,21 @@ function updateMapView(data) {
  */
 function refreshAllDataForNewLocation() {
     console.log('Refreshing all data for new location...');
+    console.log('Selected Municipality:', window.selectedMunicipality ? window.selectedMunicipality.name : 'None');
+    console.log('Selected Barangay:', window.selectedBarangay ? window.selectedBarangay.name : 'None');
     
     // Refresh map data
     loadMapData();
     
     // Trigger dashboard chart updates if we're on the dashboard
     if (typeof updateAllCharts === 'function') {
+        console.log('Updating all charts with new location data');
         updateAllCharts();
     }
     
     // Update prediction data if we're on the prediction page
     if (typeof updatePredictionModel === 'function') {
+        console.log('Updating prediction model with new location data');
         updatePredictionModel();
     }
     
@@ -444,9 +448,18 @@ function refreshAllDataForNewLocation() {
     const alertsContainer = document.getElementById('alerts-container');
     if (alertsContainer) {
         if (typeof loadActiveAlerts === 'function') {
+            console.log('Updating alerts with new location data');
             loadActiveAlerts();
         }
     }
+    
+    // Set a global indication that the location has changed (for other components to check)
+    window.locationChanged = true;
+    
+    // Reset the flag after a brief delay (giving components time to check)
+    setTimeout(() => {
+        window.locationChanged = false;
+    }, 500);
 }
 
 /**
