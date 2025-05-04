@@ -214,8 +214,19 @@ function createChart(canvasId, label, colors) {
                         font: {
                             size: isMobile ? 9 : 11
                         },
-                        maxTicksLimit: isMobile ? 6 : 10, // Limit number of ticks on mobile
-                        autoSkip: true
+                        maxTicksLimit: isMobile ? 6 : 8, // Limit number of ticks on mobile
+                        autoSkip: true,
+                        callback: function(value, index, values) {
+                            // Format the date/time to be more readable
+                            if (typeof value === 'string' && value.includes('-')) {
+                                // If it's a full ISO date-time format
+                                if (value.includes('T') || value.includes(' ')) {
+                                    const date = new Date(value);
+                                    return date.getHours() + ':' + (date.getMinutes() < 10 ? '0' : '') + date.getMinutes();
+                                }
+                            }
+                            return value;
+                        }
                     }
                 }
             },
