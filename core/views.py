@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordResetView
+from django.contrib.auth import login
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib import messages
 from django.db.models import Avg, Max, Min
@@ -11,7 +12,7 @@ from .models import (
     Sensor, SensorData, Barangay, FloodRiskZone, 
     FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
 )
-from .forms import FloodAlertForm, ThresholdSettingForm, BarangaySearchForm
+from .forms import FloodAlertForm, ThresholdSettingForm, BarangaySearchForm, RegisterForm
 
 class CustomLoginView(LoginView):
     template_name = 'login.html'
@@ -21,6 +22,21 @@ class CustomPasswordResetView(PasswordResetView):
     template_name = 'password_reset.html'
     form_class = PasswordResetForm
     success_url = '/login/'
+
+def register(request):
+    """User registration view"""
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Log the user in immediately after registration
+            login(request, user)
+            messages.success(request, f'Account created for {user.username}!')
+            return redirect('dashboard')
+    else:
+        form = RegisterForm()
+    
+    return render(request, 'register.html', {'form': form})
 
 @login_required
 def dashboard(request):

@@ -49,7 +49,11 @@
                     <a href="{% url 'password_reset' %}" class="text-primary">Forgot Password?</a>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100 py-2">Sign In</button>
+                <button type="submit" class="btn btn-primary w-100 py-2 mb-3">Sign In</button>
+                
+                <div class="text-center">
+                    <p class="mb-0">Don't have an account? <a href="{% url 'register' %}" class="text-primary">Register</a></p>
+                </div>
                 
                 <input type="hidden" name="next" value="{{ next }}">
             </form>
