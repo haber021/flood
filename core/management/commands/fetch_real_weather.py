@@ -1,24 +1,44 @@
 import re
+import json
 import requests
+import traceback
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from core.models import Sensor, SensorData
-import random
 
 class Command(BaseCommand):
-    help = 'Fetch real-time weather data for temperature sensors'
+    help = 'Fetch real-time weather data from online sources'
     
     def handle(self, *args, **options):
-        self.stdout.write("Fetching real-time weather data...")
-        self.update_weather_data()
+        self.stdout.write("Fetching real-time weather data from online sources...")
+        self.update_temperature_data()
         self.update_rainfall_data()
         self.update_water_level_data()
+        self.update_humidity_data()
+        self.update_wind_data()
         self.stdout.write(self.style.SUCCESS("Successfully updated sensor data with real-time values"))
     
     def fetch_weather_for_location(self, location_name, lat, lng):
-        """Fetch weather data for a specific location"""
+        """Fetch weather data for a specific location using multiple sources"""
         try:
-            # Format the search query for weather data
+            # Try OpenWeatherMap-like API for more reliable data
+            # Format coordinates for API request
+            api_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lng}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m"
+            
+            # Send API request
+            response = requests.get(api_url)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if 'current' in data:
+                        self.stdout.write(f"Successfully retrieved real-time data for {location_name} from Open-Meteo API")
+                        return data['current']
+                except json.JSONDecodeError:
+                    self.stdout.write(self.style.WARNING(f"Failed to parse API response for {location_name}"))
+            
+            # Fallback to Google Weather scraping if API fails
+            self.stdout.write(self.style.WARNING(f"Falling back to alternate source for {location_name}"))
             search_query = f"weather {location_name} philippines current temperature"
             search_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
             
@@ -39,26 +59,52 @@ class Command(BaseCommand):
             if matches:
                 temperature = float(matches.group(1))
                 self.stdout.write(f"Found temperature for {location_name}: {temperature}°C")
-                return temperature
-            else:
-                # Try alternative pattern
-                temperature_pattern = r'(\d+)\s?degrees'
-                matches = re.search(temperature_pattern, response.text, re.IGNORECASE)
-                if matches:
-                    temperature = float(matches.group(1))
-                    self.stdout.write(f"Found temperature for {location_name}: {temperature}°C")
-                    return temperature
                 
-                # If we still can't find it, use the latest PAGASA data for Region 1 (approximation)
-                self.stdout.write(self.style.WARNING(f"Could not extract temperature for {location_name}, using regional approximation"))
-                # Regional approximation for Ilocos Sur (based on typical values)
-                return random.uniform(27.5, 32.5)
+                # Extract other weather data when available
+                humidity_pattern = r'Humidity:\s*(\d+)%'
+                humidity_matches = re.search(humidity_pattern, response.text)
+                humidity = float(humidity_matches.group(1)) if humidity_matches else None
+                
+                rainfall_pattern = r'Precipitation:\s*(\d+\.?\d*)\s*mm'
+                rainfall_matches = re.search(rainfall_pattern, response.text)
+                rainfall = float(rainfall_matches.group(1)) if rainfall_matches else None
+                
+                wind_pattern = r'Wind:\s*(\d+\.?\d*)\s*km/h'
+                wind_matches = re.search(wind_pattern, response.text)
+                wind = float(wind_matches.group(1)) if wind_matches else None
+                
+                return {
+                    'temperature_2m': temperature,
+                    'relative_humidity_2m': humidity,
+                    'precipitation': rainfall,
+                    'wind_speed_10m': wind
+                }
+            else:
+                # Try weather API for Vical region
+                self.stdout.write(self.style.WARNING(f"Trying official weather data for region"))
+                # Using a weather API focused on the Philippines
+                region_url = f"https://api.open-meteo.com/v1/forecast?latitude=17.13&longitude=120.43&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m"
+                response = requests.get(region_url)
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        if 'current' in data:
+                            self.stdout.write(f"Retrieved regional weather data for {location_name}")
+                            return data['current']
+                    except json.JSONDecodeError:
+                        pass
+                        
+                self.stdout.write(self.style.ERROR(f"Failed to retrieve weather data for {location_name} from all sources"))
+                return None
+                
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error fetching weather data: {e}"))
-            return random.uniform(27.5, 32.5)  # Fallback to reasonable approximation
+            self.stdout.write(self.style.ERROR(f"Error fetching weather data: {str(e)}"))
+            traceback.print_exc()
+            return None
     
-    def update_weather_data(self):
-        """Update weather data for all temperature sensors"""
+    def update_temperature_data(self):
+        """Update temperature data for all temperature sensors from real sources"""
         # Get all temperature sensors
         temperature_sensors = Sensor.objects.filter(sensor_type='temperature', active=True)
         
@@ -67,15 +113,16 @@ class Command(BaseCommand):
             return
         
         for sensor in temperature_sensors:
-            # Get location name from sensor name or default to Vical, Santa Lucia
+            # Get location name from sensor name
             location_name = sensor.name.replace('Weather Station', '').strip()
             if not location_name:
                 location_name = "Vical, Santa Lucia, Ilocos Sur"
             
-            # Fetch temperature data
-            temperature = self.fetch_weather_for_location(location_name, sensor.latitude, sensor.longitude)
+            # Fetch weather data
+            weather_data = self.fetch_weather_for_location(location_name, sensor.latitude, sensor.longitude)
             
-            if temperature is not None:
+            if weather_data and weather_data.get('temperature_2m') is not None:
+                temperature = weather_data['temperature_2m']
                 # Save the new sensor reading
                 SensorData.objects.create(
                     sensor=sensor,
@@ -83,87 +130,184 @@ class Command(BaseCommand):
                     timestamp=timezone.now()
                 )
                 self.stdout.write(self.style.SUCCESS(f"Saved new temperature reading for {sensor.name}: {temperature}°C"))
+            else:
+                self.stdout.write(self.style.ERROR(f"Could not get temperature data for {sensor.name}"))
     
     def update_rainfall_data(self):
-        """Update rainfall data for all rainfall sensors using regional data"""
+        """Update rainfall data for all rainfall sensors from real sources"""
         rainfall_sensors = Sensor.objects.filter(sensor_type='rainfall', active=True)
         
         if not rainfall_sensors.exists():
             self.stdout.write(self.style.WARNING("No active rainfall sensors found."))
             return
         
-        # Get current month for seasonality
-        current_month = timezone.now().month
-        
-        # Seasonal rainfall patterns for Northern Philippines
-        # Higher in rainy season (June-November), lower in dry season
-        is_rainy_season = 5 <= current_month <= 11
-        
         for sensor in rainfall_sensors:
-            # Simulate realistic rainfall values based on season
-            if is_rainy_season:
-                # Rainy season: 0-25mm with occasional heavier rains
-                if random.random() < 0.3:  # 30% chance of heavier rain
-                    rainfall = random.uniform(8.0, 25.0)
-                else:
-                    rainfall = random.uniform(0.2, 8.0)
+            # Get location name
+            location_name = sensor.name.replace('Rain', '').replace('Gauge', '').replace('Monitor', '').strip()
+            if not location_name:
+                location_name = "Vical, Santa Lucia, Ilocos Sur"
+            
+            # Fetch weather data
+            weather_data = self.fetch_weather_for_location(location_name, sensor.latitude, sensor.longitude)
+            
+            if weather_data and weather_data.get('precipitation') is not None:
+                rainfall = weather_data['precipitation']
+                # Save the new sensor reading
+                SensorData.objects.create(
+                    sensor=sensor,
+                    value=rainfall,
+                    timestamp=timezone.now()
+                )
+                self.stdout.write(self.style.SUCCESS(f"Saved new rainfall reading for {sensor.name}: {rainfall}mm"))
             else:
-                # Dry season: mostly 0-3mm
-                if random.random() < 0.1:  # 10% chance of some rain
-                    rainfall = random.uniform(0.1, 3.0)
-                else:
-                    rainfall = 0.0
-            
-            # Round to 2 decimal places
-            rainfall = round(rainfall, 2)
-            
-            # Save the new sensor reading
-            SensorData.objects.create(
-                sensor=sensor,
-                value=rainfall,
-                timestamp=timezone.now()
-            )
-            self.stdout.write(self.style.SUCCESS(f"Saved new rainfall reading for {sensor.name}: {rainfall}mm"))
+                # Try to get data from official govt sources
+                self.stdout.write(self.style.WARNING(f"Trying to get rainfall data from PAGASA data"))
+                try:
+                    # PAGASA data or closest available source
+                    region_url = f"https://api.open-meteo.com/v1/forecast?latitude=17.13&longitude=120.43&current=precipitation&daily=precipitation_sum"
+                    response = requests.get(region_url)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if 'current' in data and data['current'].get('precipitation') is not None:
+                            rainfall = data['current']['precipitation']
+                            SensorData.objects.create(
+                                sensor=sensor,
+                                value=rainfall,
+                                timestamp=timezone.now()
+                            )
+                            self.stdout.write(self.style.SUCCESS(f"Saved regional rainfall reading for {sensor.name}: {rainfall}mm"))
+                        else:
+                            self.stdout.write(self.style.ERROR(f"Could not get rainfall data for {sensor.name}"))
+                    else:
+                        self.stdout.write(self.style.ERROR(f"Could not access rainfall data for {sensor.name}"))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f"Error fetching PAGASA rainfall data: {str(e)}"))
     
     def update_water_level_data(self):
-        """Update water level data based on recent rainfall and seasonal patterns"""
+        """Update water level data using real-time monitoring API or govt data"""
         water_level_sensors = Sensor.objects.filter(sensor_type='water_level', active=True)
         
         if not water_level_sensors.exists():
             self.stdout.write(self.style.WARNING("No active water level sensors found."))
             return
         
-        # Get recent rainfall data to influence water levels
-        recent_rainfall = SensorData.objects.filter(
-            sensor__sensor_type='rainfall',
-            timestamp__gte=timezone.now() - timezone.timedelta(hours=24)
-        ).values_list('value', flat=True)
-        
-        # Calculate average recent rainfall
-        avg_recent_rainfall = sum(recent_rainfall) / max(len(recent_rainfall), 1) if recent_rainfall else 0
-        
-        # Calculate water level baseline and adjustment
-        current_month = timezone.now().month
-        is_rainy_season = 5 <= current_month <= 11
-        
-        # Base water level is higher in rainy season
-        base_level = 1.2 if is_rainy_season else 0.8
-        
-        # Adjustment based on recent rainfall (more rain = higher water levels)
-        rainfall_adjustment = min(avg_recent_rainfall / 10, 1.5)  # Cap at 1.5m increase
-        
-        for sensor in water_level_sensors:
-            # Add some location-specific variation
-            location_variation = random.uniform(-0.2, 0.2)
+        # Try to get real-time monitoring data from DOST-PAGASA or similar sources
+        try:
+            # Construct API for water level monitoring
+            # Using open-meteo's hydrological API (as a substitute for actual govt data sources)
+            hydro_url = f"https://api.open-meteo.com/v1/forecast?latitude=17.13&longitude=120.43&hourly=river_discharge_m3s"
+            response = requests.get(hydro_url)
             
-            # Calculate final water level
-            water_level = base_level + rainfall_adjustment + location_variation
-            water_level = max(0.3, round(water_level, 2))  # Ensure minimum level and round
+            water_level_data = None
+            if response.status_code == 200:
+                data = response.json()
+                if 'hourly' in data and 'river_discharge_m3s' in data['hourly']:
+                    # Get latest reading
+                    discharge = data['hourly']['river_discharge_m3s'][-1]
+                    if discharge is not None:
+                        # Convert discharge to water level (simplified conversion)
+                        # In a real system, this would use rating curves specific to the location
+                        water_level_data = max(0.5, min(5.0, discharge / 10))
             
-            # Save the new sensor reading
-            SensorData.objects.create(
-                sensor=sensor,
-                value=water_level,
-                timestamp=timezone.now()
-            )
-            self.stdout.write(self.style.SUCCESS(f"Saved new water level reading for {sensor.name}: {water_level}m"))
+            for sensor in water_level_sensors:
+                # Use real data if available, otherwise calculate from rainfall
+                if water_level_data is not None:
+                    # Apply some small variation based on specific location
+                    location_factor = 1.0
+                    if "Bridge" in sensor.name:
+                        location_factor = 0.9  # Slightly lower at bridge locations
+                    elif "River" in sensor.name:
+                        location_factor = 1.1  # Slightly higher in river locations
+                    
+                    water_level = round(water_level_data * location_factor, 2)
+                    SensorData.objects.create(
+                        sensor=sensor,
+                        value=water_level,
+                        timestamp=timezone.now()
+                    )
+                    self.stdout.write(self.style.SUCCESS(f"Saved water level reading for {sensor.name}: {water_level}m"))
+                else:
+                    # If no direct water level data, estimate from recent rainfall
+                    # This is a fallback that uses real rainfall data to generate water levels
+                    recent_rainfall = SensorData.objects.filter(
+                        sensor__sensor_type='rainfall',
+                        timestamp__gte=timezone.now() - timezone.timedelta(hours=24)
+                    ).values_list('value', flat=True)
+                    
+                    if recent_rainfall:
+                        # Use actual rainfall data to calculate water level
+                        avg_rainfall = sum(recent_rainfall) / len(recent_rainfall)
+                        # Convert rainfall to water level (basic hydrological relationship)
+                        # In reality this would use more complex watershed models
+                        water_level = round(0.8 + (avg_rainfall / 10), 2)
+                        
+                        SensorData.objects.create(
+                            sensor=sensor,
+                            value=water_level,
+                            timestamp=timezone.now()
+                        )
+                        self.stdout.write(self.style.SUCCESS(f"Saved rainfall-derived water level for {sensor.name}: {water_level}m"))
+                    else:
+                        self.stdout.write(self.style.ERROR(f"No data available to calculate water level for {sensor.name}"))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error processing water level data: {str(e)}"))
+            traceback.print_exc()
+            
+    def update_humidity_data(self):
+        """Update humidity data for all humidity sensors"""
+        humidity_sensors = Sensor.objects.filter(sensor_type='humidity', active=True)
+        
+        if not humidity_sensors.exists():
+            self.stdout.write(self.style.WARNING("No active humidity sensors found."))
+            return
+        
+        for sensor in humidity_sensors:
+            # Get location name
+            location_name = sensor.name.replace('Environmental', '').replace('Monitor', '').strip()
+            if not location_name:
+                location_name = "Vical, Santa Lucia, Ilocos Sur"
+            
+            # Fetch weather data
+            weather_data = self.fetch_weather_for_location(location_name, sensor.latitude, sensor.longitude)
+            
+            if weather_data and weather_data.get('relative_humidity_2m') is not None:
+                humidity = weather_data['relative_humidity_2m']
+                # Save the new sensor reading
+                SensorData.objects.create(
+                    sensor=sensor, 
+                    value=humidity,
+                    timestamp=timezone.now()
+                )
+                self.stdout.write(self.style.SUCCESS(f"Saved new humidity reading for {sensor.name}: {humidity}%"))
+            else:
+                self.stdout.write(self.style.ERROR(f"Could not get humidity data for {sensor.name}"))
+    
+    def update_wind_data(self):
+        """Update wind speed data for all wind sensors"""
+        wind_sensors = Sensor.objects.filter(sensor_type='wind_speed', active=True)
+        
+        if not wind_sensors.exists():
+            self.stdout.write(self.style.WARNING("No active wind sensors found."))
+            return
+        
+        for sensor in wind_sensors:
+            # Get location name
+            location_name = sensor.name.replace('Wind', '').replace('Monitor', '').replace('Station', '').strip()
+            if not location_name:
+                location_name = "Vical, Santa Lucia, Ilocos Sur"
+            
+            # Fetch weather data
+            weather_data = self.fetch_weather_for_location(location_name, sensor.latitude, sensor.longitude)
+            
+            if weather_data and weather_data.get('wind_speed_10m') is not None:
+                wind_speed = weather_data['wind_speed_10m']
+                # Save the new sensor reading
+                SensorData.objects.create(
+                    sensor=sensor,
+                    value=wind_speed,
+                    timestamp=timezone.now()
+                )
+                self.stdout.write(self.style.SUCCESS(f"Saved new wind speed reading for {sensor.name}: {wind_speed}km/h"))
+            else:
+                self.stdout.write(self.style.ERROR(f"Could not get wind speed data for {sensor.name}"))
