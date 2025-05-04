@@ -47,8 +47,24 @@ function initializeGauges() {
  * Update sensor data for all gauges and stats
  */
 function updateSensorData() {
-    // Fetch the latest sensor data
-    fetch('/api/sensor-data/?limit=5')
+    // Construct the URL with location parameters
+    let url = '/api/sensor-data/?limit=5';
+    
+    // Add location parameters if available
+    if (window.selectedMunicipality) {
+        url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`[Sensor Data] Adding municipality filter: ${window.selectedMunicipality.name}`);
+    }
+    
+    if (window.selectedBarangay) {
+        url += `&barangay_id=${window.selectedBarangay.id}`;
+        console.log(`[Sensor Data] Adding barangay filter: ${window.selectedBarangay.name}`);
+    }
+    
+    console.log(`[Sensor Data] Fetching latest readings with URL: ${url}`);
+    
+    // Fetch the latest sensor data with location filters
+    fetch(url)
         .then(response => response.json())
         .then(data => {
             if (!data.results || data.results.length === 0) {
@@ -161,7 +177,23 @@ function updateGaugeColor(gaugeId, value) {
  * Check for active alerts and update the dashboard
  */
 function checkActiveAlerts() {
-    fetch('/api/flood-alerts/?active=true')
+    // Construct the URL with location parameters
+    let url = '/api/flood-alerts/?active=true';
+    
+    // Add location parameters if available
+    if (window.selectedMunicipality) {
+        url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`[Alerts] Adding municipality filter: ${window.selectedMunicipality.name}`);
+    }
+    
+    if (window.selectedBarangay) {
+        url += `&barangay_id=${window.selectedBarangay.id}`;
+        console.log(`[Alerts] Adding barangay filter: ${window.selectedBarangay.name}`);
+    }
+    
+    console.log(`[Alerts] Fetching alerts with URL: ${url}`);
+    
+    fetch(url)
         .then(response => response.json())
         .then(data => {
             const alertsContainer = document.getElementById('alerts-list');
