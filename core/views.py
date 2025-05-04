@@ -12,7 +12,8 @@ from django.core.paginator import Paginator
 from datetime import timedelta
 from .models import (
     Sensor, SensorData, Barangay, FloodRiskZone, Municipality,
-    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact, UserProfile
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact, UserProfile,
+    ResilienceScore
 )
 from .forms import FloodAlertForm, ThresholdSettingForm, BarangaySearchForm, RegisterForm, UserProfileForm
 
@@ -652,3 +653,62 @@ def edit_user(request, user_id):
     }
     
     return render(request, 'edit_user.html', context)
+
+@login_required
+def resilience_scores_page(request):
+    """Community resilience scores view"""
+    # Get all resilience scores, prioritizing current scores
+    resilience_scores = ResilienceScore.objects.all().order_by('-is_current', '-assessment_date')
+    
+    # Get location filters from request
+    municipality_id = request.GET.get('municipality_id', None)
+    barangay_id = request.GET.get('barangay_id', None)
+    show_only_current = request.GET.get('current', 'true').lower() == 'true'
+    
+    # Filter by municipality if specified
+    if municipality_id:
+        resilience_scores = resilience_scores.filter(municipality_id=municipality_id)
+    
+    # Filter by barangay if specified
+    if barangay_id:
+        resilience_scores = resilience_scores.filter(barangay_id=barangay_id)
+    
+    # Filter to show only current assessments if specified
+    if show_only_current:
+        resilience_scores = resilience_scores.filter(is_current=True)
+    
+    # Get all municipalities for filtering
+    municipalities = Municipality.objects.all().order_by('name')
+    
+    # Get barangays belonging to the selected municipality or all if no municipality is selected
+    barangay_filter = {}
+    if municipality_id:
+        barangay_filter['municipality_id'] = municipality_id
+    
+    barangays = Barangay.objects.filter(**barangay_filter).order_by('name')
+    
+    # Calculate summary statistics
+    avg_scores = {}
+    if resilience_scores.exists():
+        # Overall average
+        avg_scores['overall'] = resilience_scores.aggregate(Avg('overall_score'))['overall_score__avg']
+        
+        # By component
+        avg_scores['infrastructure'] = resilience_scores.aggregate(Avg('infrastructure_score'))['infrastructure_score__avg']
+        avg_scores['social'] = resilience_scores.aggregate(Avg('social_capital_score'))['social_capital_score__avg']
+        avg_scores['institutional'] = resilience_scores.aggregate(Avg('institutional_score'))['institutional_score__avg']
+        avg_scores['economic'] = resilience_scores.aggregate(Avg('economic_score'))['economic_score__avg']
+        avg_scores['environmental'] = resilience_scores.aggregate(Avg('environmental_score'))['environmental_score__avg']
+    
+    context = {
+        'resilience_scores': resilience_scores,
+        'municipalities': municipalities,
+        'barangays': barangays,
+        'avg_scores': avg_scores,
+        'selected_municipality_id': municipality_id,
+        'selected_barangay_id': barangay_id,
+        'show_only_current': show_only_current,
+        'page': 'resilience'
+    }
+    
+    return render(request, 'resilience_scores.html', context)
