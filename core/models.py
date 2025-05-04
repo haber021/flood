@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Sensor(models.Model):
     """Model for environmental sensors in the system"""
@@ -172,3 +174,67 @@ class EmergencyContact(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.role})"
+
+
+class UserProfile(models.Model):
+    """Extended profile for users in the system"""
+    USER_ROLES = [
+        ('admin', 'Administrator'),
+        ('manager', 'Flood Manager'),
+        ('officer', 'Municipal Officer'),
+        ('operator', 'System Operator'),
+        ('viewer', 'Data Viewer'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=USER_ROLES, default='viewer')
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    municipality = models.ForeignKey(Municipality, on_delete=models.SET_NULL, null=True, blank=True, 
+                                  related_name='assigned_users')
+    barangay = models.ForeignKey(Barangay, on_delete=models.SET_NULL, null=True, blank=True,
+                              related_name='assigned_users')
+    receive_alerts = models.BooleanField(default=True)
+    receive_sms = models.BooleanField(default=False)
+    receive_email = models.BooleanField(default=True)
+    last_login_ip = models.GenericIPAddressField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.user.username} ({self.get_role_display()})"
+    
+    def has_role(self, role):
+        """Check if user has a specific role"""
+        return self.role == role
+    
+    def is_admin(self):
+        """Check if user is an admin"""
+        return self.role == 'admin'
+        
+    def is_manager(self):
+        """Check if user is a flood manager"""
+        return self.role == 'manager' or self.role == 'admin'
+        
+    def is_officer(self):
+        """Check if user is a municipal officer"""
+        return self.role == 'officer' or self.is_manager()
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Create a UserProfile instance when a User is created"""
+    if created:
+        UserProfile.objects.create(user=instance)
+        
+        # Add to default group based on role
+        if not instance.is_superuser:
+            default_group, _ = Group.objects.get_or_create(name='Viewers')
+            instance.groups.add(default_group)
+
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """Save UserProfile when User is saved"""
+    if not hasattr(instance, 'profile'):
+        UserProfile.objects.create(user=instance)
+    instance.profile.save()

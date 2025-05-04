@@ -1,7 +1,9 @@
 from django.contrib import admin
+from django.contrib.auth.models import User, Group
+from django.contrib.auth.admin import UserAdmin
 from .models import (
     Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
-    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact, UserProfile
 )
 
 @admin.register(Sensor)
