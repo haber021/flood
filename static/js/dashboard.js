@@ -242,8 +242,19 @@ function checkActiveAlerts() {
     
     console.log(`[Alerts] Fetching alerts with URL: ${url}`);
     
-    fetch(url)
-        .then(response => response.json())
+    fetch(url, {
+        credentials: 'same-origin',  // Include cookies for authentication
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             // If no results with municipality filter, try getting global data
             if ((!data.results || data.results.length === 0) && 
@@ -253,8 +264,19 @@ function checkActiveAlerts() {
                 window.isRetryAlertsFetch = true;
                 
                 // Fetch global alerts (without location filters)
-                fetch('/api/flood-alerts/?active=true')
-                    .then(response => response.json())
+                fetch('/api/flood-alerts/?active=true', {
+                    credentials: 'same-origin',  // Include cookies for authentication
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(globalData => {
                         window.isRetryAlertsFetch = false;
                         processAlertsData(globalData);
@@ -271,6 +293,11 @@ function checkActiveAlerts() {
         })
         .catch(error => {
             console.error('Error checking alerts:', error);
+            
+            // Update alert status to normal as a fallback
+            if (typeof updateAlertStatus === 'function') {
+                updateAlertStatus(null);
+            }
         });
 }
 
