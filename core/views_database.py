@@ -72,6 +72,7 @@ def database_management(request):
 def create_backup(request):
     if request.method == 'POST':
         filename = request.POST.get('backup_filename')
+        backup_format = request.POST.get('backup_format', 'json')
         
         # Capture output from the management command
         output = StringIO()
@@ -79,9 +80,9 @@ def create_backup(request):
         try:
             # Call the backup_db management command
             if filename:
-                call_command('backup_db', filename=filename, stdout=output)
+                call_command('backup_db', filename=filename, format=backup_format, stdout=output)
             else:
-                call_command('backup_db', stdout=output)
+                call_command('backup_db', format=backup_format, stdout=output)
             
             # Get the command output
             result = output.getvalue().strip()
@@ -113,12 +114,15 @@ def restore_backup(request):
             messages.error(request, 'You must confirm that you understand the restore action.')
             return redirect('database_management')
         
+        # Determine backup format from file extension
+        backup_format = 'auto'  # Let the restore command auto-detect
+        
         # Capture output from the management command
         output = StringIO()
         
         try:
             # Call the restore_db management command with force option
-            call_command('restore_db', backup_file, force=True, stdout=output)
+            call_command('restore_db', backup_file, force=True, format=backup_format, stdout=output)
             
             # Get the command output
             result = output.getvalue().strip()
