@@ -258,12 +258,6 @@ class ThresholdSettingViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
 
-from flood_monitoring.ml.flood_prediction_model import predict_flood_probability, get_affected_barangays as ml_get_affected_barangays
-import logging
-
-# Set up logging
-logger = logging.getLogger(__name__)
-
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def flood_prediction(request):
@@ -302,6 +296,7 @@ def flood_prediction(request):
     start_date_24h = end_date - timedelta(hours=24)
     start_date_48h = end_date - timedelta(hours=48)
     start_date_7d = end_date - timedelta(days=7)
+    start_date_72h = end_date - timedelta(hours=72) # For backward compatibility
     
     # Get rainfall data for different time periods
     rainfall_filters_24h = {
@@ -337,6 +332,18 @@ def flood_prediction(request):
         **rainfall_filters_7d
     ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
     
+    # For backward compatibility
+    rainfall_filters_72h = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_72h,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_72h.update(sensor_filters)
+    
+    rainfall_72h = SensorData.objects.filter(
+        **rainfall_filters_72h
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
     # Get water level data
     water_level_filters = {
         'sensor__sensor_type': 'water_level',
@@ -370,9 +377,15 @@ def flood_prediction(request):
     }
     humidity_filters.update(sensor_filters)  # Add location filters
     
-    humidity = SensorData.objects.filter(
+    humidity_data = SensorData.objects.filter(
         **humidity_filters
-    ).aggregate(current=Max('value'), avg=Avg('value'))
+    ).order_by('-timestamp')
+    
+    soil_saturation = 0
+    
+    if humidity_data.exists():
+        # Using humidity as a proxy for soil saturation
+        soil_saturation = humidity_data.first().value
     
     # Get temperature data
     temp_filters = {
@@ -381,98 +394,182 @@ def flood_prediction(request):
     }
     temp_filters.update(sensor_filters)  # Add location filters
     
-    temperature = SensorData.objects.filter(
+    temp_data = SensorData.objects.filter(
         **temp_filters
-    ).aggregate(current=Max('value'), avg=Avg('value'))
+    ).order_by('-timestamp')
     
-    # Factor 3: Current water level
-    if water_level['current']:
-        if water_level['current'] > 1.5:  # Above 1.5m is high
-            probability += 30
-        elif water_level['current'] > 1.0:
-            probability += 20
-        elif water_level['current'] > 0.5:
-            probability += 10
+    temperature_value = 25  # Default temperature
     
-    # Factor 4: Soil saturation (using humidity as a proxy)
-    if humidity['current']:
-        if humidity['current'] > 90:  # Very humid/saturated soil
-            probability += 15
-        elif humidity['current'] > 80:
-            probability += 10
-        elif humidity['current'] > 70:
-            probability += 5
+    if temp_data.exists():
+        temperature_value = temp_data.first().value
+        
+    # For backward compatibility
+    humidity = {'current': soil_saturation, 'avg': soil_saturation}
+    temperature = {'current': temperature_value, 'avg': temperature_value}
+    water_level = {'current': water_level_current, 'avg': water_level_current}
     
-    # Cap the probability
-    probability = min(probability, 100)
+    # Create input data for ML prediction model
+    input_data = {
+        'rainfall_24h': rainfall_24h['total'] if rainfall_24h['total'] else 0,
+        'rainfall_48h': rainfall_48h['total'] if rainfall_48h['total'] else 0,
+        'rainfall_7d': rainfall_7d['total'] if rainfall_7d['total'] else 0,
+        'water_level': water_level_current,
+        'water_level_change_24h': water_level_change_24h,
+        'temperature': temperature_value,
+        'humidity': soil_saturation,
+        'soil_saturation': soil_saturation,
+        # Use a default elevation for the selected area
+        'elevation': 25 if municipality else 20,
+        # Add the month and day for seasonal patterns
+        'month': end_date.month,
+        'day_of_year': end_date.timetuple().tm_yday,
+        # Historical floods (this would come from a database in a real system)
+        'historical_floods_count': 2 if barangay_id else 1
+    }
     
-    # Based on probability, calculate ETA
-    hours_to_flood = None
-    if probability >= 60:
-        # Estimate hours to flood based on current water level and rainfall rate
-        if water_level['current'] and rainfall_24h['avg']:
-            # Simple formula: time to flood decreases with higher water level and rainfall rate
-            current_level = water_level['current']
-            target_level = 1.8  # assumed flood level
-            level_difference = max(0, target_level - current_level)
-            
-            rainfall_rate = rainfall_24h['avg'] / 24  # mm per hour
-            if rainfall_rate > 0:
-                # Simplified conversion from rainfall to water level rise
-                # This would be more complex in a real model
-                estimated_rise_rate = rainfall_rate * 0.02  # 1mm rain -> 0.02m water rise
+    logger.info(f"Input data for ML prediction: {input_data}")
+    
+    try:
+        # Use the ML model to predict flood probability
+        ml_prediction = predict_flood_probability(input_data)
+        logger.info(f"ML Prediction results: {ml_prediction}")
+        
+        # Extract prediction data
+        probability = ml_prediction['probability']
+        impact = ml_prediction['impact']
+        hours_to_flood = ml_prediction['hours_to_flood']
+        factors = ml_prediction['contributing_factors']
+        severity_level = ml_prediction['severity_level']
+        
+    except Exception as e:
+        logger.error(f"Error using ML model for prediction: {e}")
+        
+        # Fall back to the heuristic model if ML fails
+        logger.info("Falling back to heuristic model for prediction")
+        
+        # Initialize probability
+        probability = 0
+        
+        # Factor 1: Recent heavy rainfall (24-hour)
+        if rainfall_24h['total']:
+            if rainfall_24h['total'] > 50:  # More than 50mm in 24 hours is significant
+                probability += 30
+            elif rainfall_24h['total'] > 25:
+                probability += 20
+            elif rainfall_24h['total'] > 10:
+                probability += 10
+        
+        # Factor 2: Sustained rainfall (72-hour)
+        if rainfall_72h['total']:
+            if rainfall_72h['total'] > 100:  # More than 100mm in 72 hours
+                probability += 25
+            elif rainfall_72h['total'] > 50:
+                probability += 15
+            elif rainfall_72h['total'] > 25:
+                probability += 5
+        
+        # Factor 3: Current water level
+        if water_level['current']:
+            if water_level['current'] > 1.5:  # Above 1.5m is high
+                probability += 30
+            elif water_level['current'] > 1.0:
+                probability += 20
+            elif water_level['current'] > 0.5:
+                probability += 10
+        
+        # Factor 4: Soil saturation (using humidity as a proxy)
+        if humidity['current']:
+            if humidity['current'] > 90:  # Very humid/saturated soil
+                probability += 15
+            elif humidity['current'] > 80:
+                probability += 10
+            elif humidity['current'] > 70:
+                probability += 5
+        
+        # Cap the probability
+        probability = min(probability, 100)
+        
+        # Based on probability, calculate ETA
+        hours_to_flood = None
+        if probability >= 60:
+            # Estimate hours to flood based on current water level and rainfall rate
+            if water_level['current'] and rainfall_24h['avg']:
+                # Simple formula: time to flood decreases with higher water level and rainfall rate
+                current_level = water_level['current']
+                target_level = 1.8  # assumed flood level
+                level_difference = max(0, target_level - current_level)
                 
-                if estimated_rise_rate > 0:
-                    hours_to_flood = level_difference / estimated_rise_rate
-                    hours_to_flood = max(1, min(48, hours_to_flood))  # Cap between 1-48 hours
-    
-    # Determine contributing factors based on real data
-    factors = []
-    
-    if rainfall_24h['total'] and rainfall_24h['total'] > 10:
-        factors.append(f"Rainfall in the past 24 hours: {rainfall_24h['total']:.1f}mm")
+                rainfall_rate = rainfall_24h['avg'] / 24  # mm per hour
+                if rainfall_rate > 0:
+                    # Simplified conversion from rainfall to water level rise
+                    # This would be more complex in a real model
+                    estimated_rise_rate = rainfall_rate * 0.02  # 1mm rain -> 0.02m water rise
+                    
+                    if estimated_rise_rate > 0:
+                        hours_to_flood = level_difference / estimated_rise_rate
+                        hours_to_flood = max(1, min(48, hours_to_flood))  # Cap between 1-48 hours
         
-    if rainfall_72h['total'] and rainfall_72h['total'] > 30:
-        factors.append(f"Sustained rainfall over 72 hours: {rainfall_72h['total']:.1f}mm")
+        # Determine contributing factors based on real data
+        factors = []
         
-    if water_level['current'] and water_level['current'] > 0.8:
-        factors.append(f"Elevated water level: {water_level['current']:.2f}m")
+        if rainfall_24h['total'] and rainfall_24h['total'] > 10:
+            factors.append(f"Rainfall in the past 24 hours: {rainfall_24h['total']:.1f}mm")
+            
+        if rainfall_72h['total'] and rainfall_72h['total'] > 30:
+            factors.append(f"Sustained rainfall over 72 hours: {rainfall_72h['total']:.1f}mm")
+            
+        if water_level['current'] and water_level['current'] > 0.8:
+            factors.append(f"Elevated water level: {water_level['current']:.2f}m")
+            
+        if humidity['current'] and humidity['current'] > 70:
+            factors.append(f"High soil moisture/humidity: {humidity['current']:.0f}%")
         
-    if humidity['current'] and humidity['current'] > 70:
-        factors.append(f"High soil moisture/humidity: {humidity['current']:.0f}%")
-    
-    if rainfall_24h['max'] and rainfall_24h['max'] > 5:
-        factors.append(f"Heavy rainfall intensity: {rainfall_24h['max']:.1f}mm")
+        if rainfall_24h['max'] and rainfall_24h['max'] > 5:
+            factors.append(f"Heavy rainfall intensity: {rainfall_24h['max']:.1f}mm")
+            
+        # If we don't have enough factors, add a default
+        if len(factors) < 2:
+            if probability < 30:
+                factors.append("No significant contributing factors identified")
+            else:
+                factors.append("Limited sensor data available for analysis")
         
-    # If we don't have enough factors, add a default
-    if len(factors) < 2:
-        if probability < 30:
-            factors.append("No significant contributing factors identified")
-        else:
-            factors.append("Limited sensor data available for analysis")
-    
-    # Calculate flood impact based on probability
-    impact = ""
-    if probability >= 75:
-        impact = "Severe flooding likely with significant impact to infrastructure and possible evacuation requirements."
-    elif probability >= 50:
-        impact = "Moderate flooding expected in low-lying areas with potential minor property damage."
-    else:
-        impact = "Minor flooding possible in flood-prone areas, general population unlikely to be affected."
-    
-    # Find potentially affected barangays (in a real system, this would use geospatial analysis)
-    affected_barangays = []
-    if probability >= 30:
-        # In a real system, we would use more sophisticated logic to determine affected areas
-        # For now, we'll query barangays based on predicted severity level
-        severity_level = 1  # Default to Advisory
+        # Calculate flood impact based on probability
+        impact = ""
         if probability >= 75:
+            impact = "Severe flooding likely with significant impact to infrastructure and possible evacuation requirements."
             severity_level = 4  # Emergency
         elif probability >= 60:
+            impact = "Moderate to severe flooding expected with potential property damage and road closures."
             severity_level = 3  # Warning
-        elif probability >= 40:
+        elif probability >= 50:
+            impact = "Moderate flooding expected in low-lying areas with potential minor property damage."
             severity_level = 2  # Watch
-            
+        elif probability >= 30:
+            impact = "Minor flooding possible in flood-prone areas, general population unlikely to be affected."
+            severity_level = 1  # Advisory
+        else:
+            impact = "No significant flooding expected under current conditions."
+            severity_level = 0  # Normal
+    
+    # Find potentially affected barangays using the ML model if available
+    affected_barangays = []
+    
+    try:
+        # Try to use the ML model to get affected barangays first
+        if probability >= 30 and municipality_id:
+            ml_affected_barangays = ml_get_affected_barangays(municipality_id=municipality_id, probability_threshold=30)
+            if ml_affected_barangays:
+                logger.info(f"Using ML model to get affected barangays: {len(ml_affected_barangays)} found")
+                affected_barangays = ml_affected_barangays
+    except Exception as e:
+        logger.error(f"Error using ML model for affected barangays: {e}")
+    
+    # If ML model didn't find any barangays or failed, fall back to the traditional method
+    if not affected_barangays and probability >= 30:
+        logger.info("Using traditional method to get affected barangays")
+        # In a real system, we would use more sophisticated logic to determine affected areas
+        # For now, we'll query barangays based on predicted severity level
         # Get barangays with recent alerts of this severity or higher
         recent_alert_filters = {
             'severity_level__gte': severity_level,
@@ -565,31 +662,39 @@ def flood_prediction(request):
                 else:
                     barangays = Barangay.objects.filter(**barangay_filters).order_by('name')[:3]
         
-        # Format barangay data for response
-        for barangay in barangays:
-            risk_level = "High" if probability >= 70 else ("Moderate" if probability >= 40 else "Low")
-            evacuation_centers = 3 if risk_level == "High" else (2 if risk_level == "Moderate" else 1)
-            
-            affected_barangays.append({
-                "id": barangay.id,
-                "name": barangay.name,
-                "municipality": barangay.municipality.name,
-                "population": barangay.population,
-                "risk_level": risk_level,
-                "evacuation_centers": evacuation_centers
-            })
+            # Format barangay data for response if we didn't get from ML model
+            if not affected_barangays:
+                for barangay in barangays:
+                    risk_level = "High" if probability >= 70 else ("Moderate" if probability >= 40 else "Low")
+                    evacuation_centers = 3 if risk_level == "High" else (2 if risk_level == "Moderate" else 1)
+                    
+                    affected_barangays.append({
+                        "id": barangay.id,
+                        "name": barangay.name,
+                        "municipality": barangay.municipality.name,
+                        "population": barangay.population,
+                        "risk_level": risk_level,
+                        "evacuation_centers": evacuation_centers
+                    })
+    
+    # Calculate flood time if hours_to_flood is available
+    flood_time = None
+    if hours_to_flood:
+        flood_time = timezone.now() + timedelta(hours=hours_to_flood)
     
     # Prepare and return the prediction response
     prediction_data = {
         "probability": probability,
+        "severity_level": severity_level,
         "impact": impact,
         "hours_to_flood": hours_to_flood,
-        "flood_time": timezone.now() + timedelta(hours=hours_to_flood) if hours_to_flood else None,
+        "flood_time": flood_time.isoformat() if flood_time else None,
         "contributing_factors": factors,
         "affected_barangays": affected_barangays,
         "last_updated": timezone.now().isoformat(),
-        "rainfall_24h": rainfall_24h,
-        "water_level": water_level['current'] if water_level['current'] else 0
+        "rainfall_24h": rainfall_24h['total'] if rainfall_24h['total'] else 0,
+        "water_level": water_level['current'] if water_level['current'] else 0,
+        "prediction_source": "machine_learning" if 'ml_prediction' in locals() else "heuristic"
     }
     
     return Response(prediction_data)
