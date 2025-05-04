@@ -473,13 +473,27 @@ def get_latest_sensor_data(request):
     # Get limit parameter (default to 5)
     limit = int(request.GET.get('limit', 5))
     
+    # Get municipality filter if provided
+    municipality_id = request.GET.get('municipality_id')
+    
     # Get the latest reading for each sensor type
     latest_readings = []
     
     for sensor_type in ['temperature', 'humidity', 'rainfall', 'water_level', 'wind_speed']:
-        reading = SensorData.objects.filter(
-            sensor__sensor_type=sensor_type
-        ).order_by('-timestamp').first()
+        # Build the filter
+        filters = {'sensor__sensor_type': sensor_type}
+        
+        # Add municipality filter if provided
+        if municipality_id:
+            filters['sensor__municipality_id'] = municipality_id
+        
+        # Get the reading with filters
+        reading = SensorData.objects.filter(**filters).order_by('-timestamp').first()
+        
+        # If no municipality-specific reading, try fallback to global sensors
+        if not reading and municipality_id:
+            print(f"No {sensor_type} data found for municipality {municipality_id}, using global data")
+            reading = SensorData.objects.filter(sensor__sensor_type=sensor_type).order_by('-timestamp').first()
         
         if reading:
             latest_readings.append({
@@ -489,6 +503,8 @@ def get_latest_sensor_data(request):
                 'sensor_type': reading.sensor.sensor_type,
                 'value': reading.value,
                 'timestamp': reading.timestamp,
+                'municipality_id': reading.sensor.municipality_id if reading.sensor.municipality else None,
+                'municipality_name': reading.sensor.municipality.name if reading.sensor.municipality else 'Global',
                 'unit': get_unit_for_sensor_type(reading.sensor.sensor_type)
             })
     

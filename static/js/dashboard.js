@@ -50,19 +50,7 @@ function initializeGauges() {
  * Update sensor data for all gauges and stats
  */
 function updateSensorData() {
-    // Check if user is logged in by looking for a login button
-    const loginButton = document.querySelector('a[href*="/login/"]');
-    if (loginButton) {
-        console.warn('User not logged in, cannot fetch sensor data');
-        
-        // Update gauge displays to show authentication required
-        ['temperature-gauge', 'humidity-gauge', 'rainfall-gauge', 'water-level-gauge', 'wind-speed-gauge'].forEach(gaugeId => {
-            // Use NULL value to show '--' in the gauge
-            updateGauge(gaugeId, null, '', `#${gaugeId.split('-')[0]}-updated`, null);
-        });
-        
-        return;
-    }
+    // No longer checking for login status since API endpoints don't require authentication
     
     // Construct the URL with location parameters
     let url = '/api/sensor-data/?limit=5';
@@ -80,9 +68,8 @@ function updateSensorData() {
     
     console.log(`[Sensor Data] Fetching latest readings with URL: ${url}`);
     
-    // Fetch the latest sensor data with location filters and authentication
+    // Fetch the latest sensor data with location filters (no authentication required)
     fetch(url, {
-        credentials: 'same-origin',  // Include cookies for authentication
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
@@ -105,7 +92,6 @@ function updateSensorData() {
                     
                     // Fetch global data (without location filters)
                     fetch('/api/sensor-data/?limit=5', {
-                        credentials: 'same-origin',  // Include cookies for authentication
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
                             'Accept': 'application/json'
