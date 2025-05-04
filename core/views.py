@@ -335,7 +335,8 @@ def get_chart_data(request):
     return JsonResponse(chart_data)
 
 def get_map_data(request):
-    """API endpoint to get map data"""
+    """API endpoint to get map data (no login required)"""
+    # This API endpoint is accessible without login for map visualization
     # Optional filters
     barangay_id = request.GET.get('barangay_id', None)
     municipality_id = request.GET.get('municipality_id', None)
@@ -469,7 +470,8 @@ def get_unit_for_sensor_type(sensor_type):
     return units.get(sensor_type, '')
 
 def get_latest_sensor_data(request):
-    """API endpoint to get the latest sensor data"""
+    """API endpoint to get the latest sensor data (no login required)"""
+    # This API endpoint is accessible without login for dashboard visualization
     # Get limit parameter (default to 5)
     limit = int(request.GET.get('limit', 5))
     
@@ -515,7 +517,8 @@ def get_latest_sensor_data(request):
     })
 
 def get_flood_alerts(request):
-    """API endpoint to get flood alerts"""
+    """API endpoint to get flood alerts (no login required)"""
+    # This API endpoint is accessible without login for alerts visualization
     # Check if we only want active alerts
     active_only = request.GET.get('active', 'false').lower() == 'true'
     
