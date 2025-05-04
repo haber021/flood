@@ -70,3 +70,21 @@ class EmergencyContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmergencyContact
         fields = ['id', 'name', 'role', 'phone', 'email', 'barangay', 'barangay_name']
+
+class ResilienceScoreSerializer(serializers.ModelSerializer):
+    municipality_name = serializers.ReadOnlyField(source='municipality.name', default=None)
+    barangay_name = serializers.ReadOnlyField(source='barangay.name', default=None)
+    assessed_by_username = serializers.ReadOnlyField(source='assessed_by.username', default=None)
+    resilience_category_display = serializers.CharField(source='get_resilience_category_display', read_only=True)
+    
+    class Meta:
+        model = ResilienceScore
+        fields = [
+            'id', 'municipality', 'municipality_name', 'barangay', 'barangay_name',
+            'infrastructure_score', 'social_capital_score', 'institutional_score',
+            'economic_score', 'environmental_score', 'overall_score',
+            'resilience_category', 'resilience_category_display', 'recommendations',
+            'assessed_by', 'assessed_by_username', 'assessment_date', 'valid_until',
+            'methodology', 'notes', 'is_current', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['overall_score', 'resilience_category', 'created_at', 'updated_at']

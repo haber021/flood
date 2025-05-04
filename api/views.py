@@ -17,12 +17,13 @@ logger = logging.getLogger(__name__)
 
 from core.models import (
     Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
-    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact,
+    ResilienceScore
 )
 from .serializers import (
     SensorSerializer, SensorDataSerializer, MunicipalitySerializer, BarangaySerializer,
     FloodRiskZoneSerializer, FloodAlertSerializer, ThresholdSettingSerializer, 
-    NotificationLogSerializer, EmergencyContactSerializer
+    NotificationLogSerializer, EmergencyContactSerializer, ResilienceScoreSerializer
 )
 
 class SensorViewSet(viewsets.ReadOnlyModelViewSet):
@@ -925,3 +926,59 @@ def flood_prediction(request):
     }
     
     return Response(prediction_data)
+
+
+class ResilienceScoreViewSet(viewsets.ModelViewSet):
+    """API endpoint for community resilience scores"""
+    queryset = ResilienceScore.objects.all().order_by('-assessment_date')
+    serializer_class = ResilienceScoreSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = ResilienceScore.objects.all().order_by('-assessment_date')
+        
+        # Filter parameters
+        municipality_id = self.request.query_params.get('municipality_id', None)
+        barangay_id = self.request.query_params.get('barangay_id', None)
+        is_current = self.request.query_params.get('is_current', None)
+        min_score = self.request.query_params.get('min_score', None)
+        max_score = self.request.query_params.get('max_score', None)
+        category = self.request.query_params.get('category', None)
+        assessed_after = self.request.query_params.get('assessed_after', None)
+        assessed_before = self.request.query_params.get('assessed_before', None)
+        
+        # Apply filters
+        if municipality_id:
+            queryset = queryset.filter(municipality_id=municipality_id)
+        
+        if barangay_id:
+            queryset = queryset.filter(barangay_id=barangay_id)
+        
+        if is_current:
+            is_current_bool = is_current.lower() == 'true'
+            queryset = queryset.filter(is_current=is_current_bool)
+        
+        if min_score:
+            queryset = queryset.filter(overall_score__gte=float(min_score))
+        
+        if max_score:
+            queryset = queryset.filter(overall_score__lte=float(max_score))
+        
+        if category:
+            queryset = queryset.filter(resilience_category=category)
+        
+        if assessed_after:
+            queryset = queryset.filter(assessment_date__gte=assessed_after)
+        
+        if assessed_before:
+            queryset = queryset.filter(assessment_date__lte=assessed_before)
+            
+        return queryset
+    
+    def perform_create(self, serializer):
+        # Set the assessed_by field to the current user
+        serializer.save(assessed_by=self.request.user)
+        
+    def perform_update(self, serializer):
+        # Don't change the assessed_by field on updates
+        serializer.save()
