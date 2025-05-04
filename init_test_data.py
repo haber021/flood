@@ -82,51 +82,51 @@ def create_test_data():
             }
         )
     
-    # Create barangays
+    # Create barangays in Vical, Santa Lucia, Ilocos Sur area
     print("Creating barangays...")
     barangays_data = [
         {
-            'name': 'San Miguel',
-            'population': 15800,
-            'area_sqkm': 3.6,
-            'latitude': 14.595,
-            'longitude': 120.982,
+            'name': 'Vical',
+            'population': 4520,
+            'area_sqkm': 3.2,
+            'latitude': 17.135678,
+            'longitude': 120.437203,
             'contact_person': 'Maria Santos',
             'contact_number': '+63 918 123 4567'
         },
         {
-            'name': 'San Isidro',
-            'population': 12500,
+            'name': 'Barangay Santa Lucia',
+            'population': 6250,
             'area_sqkm': 2.8,
-            'latitude': 14.602,
-            'longitude': 120.979,
+            'latitude': 17.138520,
+            'longitude': 120.435678,
             'contact_person': 'Juan Reyes',
             'contact_number': '+63 917 234 5678'
         },
         {
-            'name': 'Poblacion',
-            'population': 19200,
-            'area_sqkm': 4.1,
-            'latitude': 14.598,
-            'longitude': 120.975,
+            'name': 'Barangay Nagsayaoan',
+            'population': 3800,
+            'area_sqkm': 2.1,
+            'latitude': 17.132456,
+            'longitude': 120.432987,
             'contact_person': 'Roberto Lim',
             'contact_number': '+63 919 345 6789'
         },
         {
-            'name': 'Santa Cruz',
-            'population': 10800,
-            'area_sqkm': 2.2,
-            'latitude': 14.608,
-            'longitude': 120.990,
+            'name': 'Cabaroan',
+            'population': 5100,
+            'area_sqkm': 2.5,
+            'latitude': 17.141032,
+            'longitude': 120.440215,
             'contact_person': 'Elena Gonzales',
             'contact_number': '+63 920 456 7890'
         },
         {
-            'name': 'San Jose',
-            'population': 14300,
-            'area_sqkm': 3.0,
-            'latitude': 14.591,
-            'longitude': 120.986,
+            'name': 'San Juan',
+            'population': 4300,
+            'area_sqkm': 2.2,
+            'latitude': 17.129876,
+            'longitude': 120.428765,
             'contact_person': 'Carlos Tan',
             'contact_number': '+63 921 567 8901'
         }
@@ -147,56 +147,56 @@ def create_test_data():
         )
         created_barangays.append(barangay)
     
-    # Create flood risk zones
+    # Create flood risk zones in Vical, Santa Lucia, Ilocos Sur area
     print("Creating flood risk zones...")
     zone_data = [
         {
-            'name': 'Riverside Area',
+            'name': 'Vical River Basin',
             'severity_level': 4,
-            'description': 'Low-lying area near the river, prone to severe flooding',
+            'description': 'Low-lying area near the river, prone to severe flooding during monsoon season',
             'geojson': json.dumps({
                 'type': 'Polygon',
                 'coordinates': [
                     [
-                        [120.975, 14.590],
-                        [120.980, 14.592],
-                        [120.982, 14.596],
-                        [120.978, 14.598],
-                        [120.975, 14.590]
+                        [120.435, 17.134],
+                        [120.438, 17.136],
+                        [120.439, 17.138],
+                        [120.436, 17.139],
+                        [120.435, 17.134]
                     ]
                 ]
             })
         },
         {
-            'name': 'Downtown Basin',
+            'name': 'Santa Lucia Central',
             'severity_level': 3,
-            'description': 'Urban area with poor drainage system',
+            'description': 'Urban area with poor drainage system, vulnerable to flash floods',
             'geojson': json.dumps({
                 'type': 'Polygon',
                 'coordinates': [
                     [
-                        [120.980, 14.600],
-                        [120.985, 14.602],
-                        [120.987, 14.598],
-                        [120.983, 14.596],
-                        [120.980, 14.600]
+                        [120.433, 17.137],
+                        [120.436, 17.139],
+                        [120.438, 17.137],
+                        [120.435, 17.135],
+                        [120.433, 17.137]
                     ]
                 ]
             })
         },
         {
-            'name': 'Eastern Hills Slope',
+            'name': 'Eastern Hillside',
             'severity_level': 2,
-            'description': 'Sloped area prone to landslides during heavy rain',
+            'description': 'Sloped area prone to landslides during heavy rainfall periods',
             'geojson': json.dumps({
                 'type': 'Polygon',
                 'coordinates': [
                     [
-                        [120.990, 14.595],
-                        [120.995, 14.597],
-                        [120.992, 14.602],
-                        [120.988, 14.600],
-                        [120.990, 14.595]
+                        [120.441, 17.137],
+                        [120.444, 17.139],
+                        [120.443, 17.142],
+                        [120.440, 17.140],
+                        [120.441, 17.137]
                     ]
                 ]
             })
@@ -213,50 +213,50 @@ def create_test_data():
             }
         )
     
-    # Create sensors
+    # Create sensors in Vical, Santa Lucia, Ilocos Sur area
     print("Creating sensors...")
     sensors_data = [
         {
-            'name': 'Rain Gauge 1',
+            'name': 'Vical Rain Gauge',
             'sensor_type': 'rainfall',
-            'latitude': 14.595,
-            'longitude': 120.982,
+            'latitude': 17.135678,
+            'longitude': 120.437203,
         },
         {
-            'name': 'Rain Gauge 2',
+            'name': 'Santa Lucia Rain Monitor',
             'sensor_type': 'rainfall',
-            'latitude': 14.608,
-            'longitude': 120.990,
+            'latitude': 17.138520,
+            'longitude': 120.435678,
         },
         {
-            'name': 'Water Level Sensor 1',
+            'name': 'Vical River Level Monitor',
             'sensor_type': 'water_level',
-            'latitude': 14.598,
-            'longitude': 120.975,
+            'latitude': 17.136789,
+            'longitude': 120.438901,
         },
         {
-            'name': 'Water Level Sensor 2',
+            'name': 'Bridge Water Level Sensor',
             'sensor_type': 'water_level',
-            'latitude': 14.591,
-            'longitude': 120.986,
+            'latitude': 17.134562,
+            'longitude': 120.436789,
         },
         {
-            'name': 'Weather Station 1',
+            'name': 'Santa Lucia Weather Station',
             'sensor_type': 'temperature',
-            'latitude': 14.602,
-            'longitude': 120.979,
+            'latitude': 17.137895,
+            'longitude': 120.434567,
         },
         {
-            'name': 'Weather Station 2',
+            'name': 'Vical Environmental Monitor',
             'sensor_type': 'humidity',
-            'latitude': 14.598,
-            'longitude': 120.975,
+            'latitude': 17.135789,
+            'longitude': 120.436543,
         },
         {
-            'name': 'Wind Monitor 1',
+            'name': 'Municipal Weather Station',
             'sensor_type': 'wind_speed',
-            'latitude': 14.595,
-            'longitude': 120.982,
+            'latitude': 17.139012,
+            'longitude': 120.439876,
         }
     ]
     
@@ -441,28 +441,28 @@ def create_test_data():
     # Create one active alert and one historical alert
     alert_data = [
         {
-            'title': 'Emergency Flood Warning: Rising Water Levels',
-            'description': 'Water levels are approaching critical thresholds. Evacuation may be necessary in low-lying areas.',
+            'title': 'Emergency Flood Warning: Rising Water Levels in Vical River',
+            'description': 'Water levels in the Vical River are approaching critical thresholds due to continuous rainfall. Evacuation may be necessary in low-lying areas of Vical and Nagsayaoan.',
             'severity_level': 4,  # Emergency
             'active': True,
             'predicted_flood_time': timezone.now() + timedelta(hours=3),
-            'affected_barangays': [created_barangays[0], created_barangays[2]],  # San Miguel, Poblacion
+            'affected_barangays': [created_barangays[0], created_barangays[2]],  # Vical, Barangay Nagsayaoan
         },
         {
-            'title': 'Flood Advisory: Heavy Rainfall Expected',
-            'description': 'Continuous heavy rainfall expected over the next 12 hours. Please monitor water levels.',
+            'title': 'Flood Advisory: Heavy Rainfall Expected in Santa Lucia',
+            'description': 'Continuous heavy rainfall expected over the next 12 hours in Santa Lucia and surrounding areas. Please monitor water levels and prepare for possible evacuation.',
             'severity_level': 2,  # Watch
             'active': True,
             'predicted_flood_time': timezone.now() + timedelta(hours=12),
-            'affected_barangays': [created_barangays[1], created_barangays[3], created_barangays[4]],  # San Isidro, Santa Cruz, San Jose
+            'affected_barangays': [created_barangays[1], created_barangays[3], created_barangays[4]],  # Barangay Santa Lucia, Cabaroan, San Juan
         },
         {
-            'title': 'Previous Flood Warning (Archived)',
-            'description': 'Previous flood event that has now receded.',
+            'title': 'Previous Flood Event in Vical Area (Archived)',
+            'description': 'Previous flash flood event in Vical and San Juan areas has now receded. Cleanup operations ongoing.',
             'severity_level': 3,  # Warning
             'active': False,
             'predicted_flood_time': timezone.now() - timedelta(days=3),
-            'affected_barangays': [created_barangays[0], created_barangays[4]],  # San Miguel, San Jose
+            'affected_barangays': [created_barangays[0], created_barangays[4]],  # Vical, San Juan
         }
     ]
     

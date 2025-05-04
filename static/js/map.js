@@ -29,8 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const mapContainer = document.getElementById('flood-map');
     if (!mapContainer) return;
     
-    // Initialize the map (centered on the Philippines as default)
-    floodMap = L.map('flood-map').setView([12.8797, 121.7740], 6);
+    // Initialize the map (centered on Vical, Santa Lucia, Ilocos Sur)
+    floodMap = L.map('flood-map').setView([17.135678, 120.437203], 14);
     
     // Add tile layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
