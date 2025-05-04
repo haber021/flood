@@ -79,6 +79,9 @@
                             {% if user.is_superuser or user.profile.role == 'admin' or user.profile.role == 'manager' %}
                             <li><a class="dropdown-item" href="{% url 'user_management' %}"><i class="fas fa-users me-1"></i> User Management</a></li>
                             {% endif %}
+                            {% if user.is_superuser or user.profile.role == 'admin' %}
+                            <li><a class="dropdown-item" href="{% url 'database_management' %}"><i class="fas fa-database me-1"></i> Database Management</a></li>
+                            {% endif %}
                             {% if user.is_staff %}
                             <li><a class="dropdown-item" href="{% url 'admin:index' %}"><i class="fas fa-tools me-1"></i> Admin Panel</a></li>
                             {% endif %}
