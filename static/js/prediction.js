@@ -450,17 +450,17 @@ function updatePredictionModel() {
             document.getElementById('last-prediction-time').textContent = new Date(data.last_updated).toLocaleString();
             
             // Update rainfall and water level indicators if available
-            if (data.rainfall_24h && data.rainfall_24h.total !== null) {
+            if (data.rainfall_24h && data.rainfall_24h.total !== null && data.rainfall_24h.total !== undefined) {
                 const rainfallElement = document.getElementById('rainfall-24h');
                 if (rainfallElement) {
-                    rainfallElement.textContent = `${data.rainfall_24h.total.toFixed(1)}mm`;
+                    rainfallElement.textContent = `${parseFloat(data.rainfall_24h.total).toFixed(1)}mm`;
                 }
             }
             
-            if (data.water_level !== null) {
+            if (data.water_level !== null && data.water_level !== undefined) {
                 const waterLevelElement = document.getElementById('current-water-level');
                 if (waterLevelElement) {
-                    waterLevelElement.textContent = `${data.water_level.toFixed(2)}m`;
+                    waterLevelElement.textContent = `${parseFloat(data.water_level).toFixed(2)}m`;
                 }
             }
         })
@@ -504,7 +504,7 @@ function updateAffectedBarangays(barangays) {
         barangayRows += `
             <tr>
                 <td><a href="/barangays/${barangay.id}/" class="text-decoration-none">${barangay.name}</a></td>
-                <td class="text-center">${barangay.population.toLocaleString()}</td>
+                <td class="text-center">${barangay.population ? barangay.population.toLocaleString() : 'N/A'}</td>
                 <td class="text-center"><span class="${riskClass} fw-bold">${barangay.risk_level}</span></td>
                 <td class="text-center">${barangay.evacuation_centers}</td>
             </tr>
