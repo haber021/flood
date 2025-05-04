@@ -215,7 +215,7 @@
         
         <!-- Data Charts -->
         <div class="col-lg-5 col-xxl-4 mb-3">
-            <div class="card shadow-sm h-100">
+            <div class="card shadow-sm h-100" style="overflow: hidden;">
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
@@ -247,8 +247,8 @@
                     </ul>
                     <div class="tab-content mt-3" id="chartTabsContent">
                         <div class="tab-pane fade show active" id="temperature-chart-panel" role="tabpanel">
-                            <div class="chart-container responsive-chart">
-                                <canvas id="temperature-chart"></canvas>
+                            <div class="chart-container">
+                                <canvas id="temperature-chart" class="chart-canvas"></canvas>
                             </div>
                             <div class="d-flex justify-content-between mt-2">
                                 <button class="btn btn-sm btn-outline-primary reset-zoom" data-chart="temperature-chart">
@@ -260,8 +260,8 @@
                             </div>
                         </div>
                         <div class="tab-pane fade" id="rainfall-chart-panel" role="tabpanel">
-                            <div class="chart-container responsive-chart">
-                                <canvas id="rainfall-chart"></canvas>
+                            <div class="chart-container">
+                                <canvas id="rainfall-chart" class="chart-canvas"></canvas>
                             </div>
                             <div class="d-flex justify-content-between mt-2">
                                 <button class="btn btn-sm btn-outline-primary reset-zoom" data-chart="rainfall-chart">
@@ -273,8 +273,8 @@
                             </div>
                         </div>
                         <div class="tab-pane fade" id="water-level-chart-panel" role="tabpanel">
-                            <div class="chart-container responsive-chart">
-                                <canvas id="water-level-chart"></canvas>
+                            <div class="chart-container">
+                                <canvas id="water-level-chart" class="chart-canvas"></canvas>
                             </div>
                             <div class="d-flex justify-content-between mt-2">
                                 <button class="btn btn-sm btn-outline-primary reset-zoom" data-chart="water-level-chart">

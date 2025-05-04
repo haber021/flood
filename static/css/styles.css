@@ -332,12 +332,18 @@ body {
     background: #888;
 }
 
-/* Responsive Chart Styling */
-.responsive-chart {
+/* Chart Styling */
+.chart-container {
     position: relative;
     width: 100%;
-    height: 300px; /* Fixed height for better consistency */
+    height: 350px; /* Fixed height for better consistency */
     margin-bottom: 15px;
+}
+
+.chart-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
 }
 
 /* Dashboard wide screen optimizations */
@@ -395,19 +401,11 @@ body {
     }
 }
 
-.responsive-chart canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100% !important;
-    height: 100% !important;
-}
-
 /* Chart responsiveness at different breakpoints */
 /* For wider screens */
 @media (min-width: 1400px) {
-    .responsive-chart {
-        height: 350px;
+    .chart-container {
+        height: 380px;
     }
     
     /* Make charts container take more space on wide screens */
@@ -418,8 +416,8 @@ body {
 }
 
 @media (min-width: 1800px) {
-    .responsive-chart {
-        height: 380px;
+    .chart-container {
+        height: 420px;
     }
     
     /* Make charts container even larger on super wide screens */
@@ -431,27 +429,27 @@ body {
 
 /* For ultra-wide screens */
 @media (min-width: 2200px) {
-    .responsive-chart {
-        height: 400px;
+    .chart-container {
+        height: 450px;
     }
 }
 
 /* For smaller screens */
 @media (max-width: 992px) {
-    .responsive-chart {
-        height: 270px;
+    .chart-container {
+        height: 320px;
     }
 }
 
 @media (max-width: 768px) {
-    .responsive-chart {
-        height: 250px;
+    .chart-container {
+        height: 280px;
     }
 }
 
 @media (max-width: 576px) {
-    .responsive-chart {
-        height: 220px;
+    .chart-container {
+        height: 250px;
     }
     
     .chart-container .btn {
