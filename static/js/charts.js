@@ -218,11 +218,20 @@ function createChart(canvasId, label, colors) {
                         autoSkip: true,
                         callback: function(value, index, values) {
                             // Format the date/time to be more readable
-                            if (typeof value === 'string' && value.includes('-')) {
-                                // If it's a full ISO date-time format
-                                if (value.includes('T') || value.includes(' ')) {
+                            if (typeof value === 'string') {
+                                try {
+                                    // Try to parse the date string
                                     const date = new Date(value);
-                                    return date.getHours() + ':' + (date.getMinutes() < 10 ? '0' : '') + date.getMinutes();
+                                    
+                                    // If it's a valid date
+                                    if (!isNaN(date.getTime())) {
+                                        // Just show hour:minute
+                                        const hours = date.getHours();
+                                        const minutes = date.getMinutes();
+                                        return hours + ':' + (minutes < 10 ? '0' : '') + minutes;
+                                    }
+                                } catch (e) {
+                                    // If parsing fails, return the original value
                                 }
                             }
                             return value;
