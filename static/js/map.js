@@ -937,7 +937,8 @@ function loadBarangaysForMunicipality(municipalityId) {
         return;
     }
 
-    const url = `/api/barangays/?municipality_id=${municipalityId}`;
+    // Use our new API endpoint that returns all barangays without pagination
+    const url = `/api/all-barangays/?municipality_id=${municipalityId}`;
     const municipalityName = window.selectedMunicipality ? window.selectedMunicipality.name : 'selected municipality';
     
     console.log(`[Barangays] Automatically loading all barangays for ${municipalityName} (ID: ${municipalityId})`);
@@ -951,15 +952,15 @@ function loadBarangaysForMunicipality(municipalityId) {
         })
         .then(data => {
             // Store all the barangays for this municipality in our global array
-            if (data.results && data.results.length > 0) {
-                console.log(`[Barangays] Found ${data.results.length} barangays for ${municipalityName}`);
+            if (data.barangays && data.barangays.length > 0) {
+                console.log(`[Barangays] Found ${data.barangays.length} barangays for ${municipalityName}`);
                 
                 // We need to update allBarangays with these results
                 // Filter out any existing barangays with the same municipality_id
                 allBarangays = allBarangays.filter(b => b.municipality_id !== parseInt(municipalityId));
                 
                 // Add the new barangays
-                allBarangays = [...allBarangays, ...data.results];
+                allBarangays = [...allBarangays, ...data.barangays];
                 
                 // Mark this municipality as loaded
                 loadedMunicipalityBarangays.push(parseInt(municipalityId));
