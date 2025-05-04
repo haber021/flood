@@ -10,6 +10,7 @@ router.register(r'barangays', views.BarangayViewSet)
 router.register(r'flood-alerts', views.FloodAlertViewSet)
 router.register(r'flood-risk-zones', views.FloodRiskZoneViewSet)
 router.register(r'threshold-settings', views.ThresholdSettingViewSet)
+router.register(r'resilience-scores', views.ResilienceScoreViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
