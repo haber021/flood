@@ -472,6 +472,23 @@ function updateMapView(data) {
     // Determine bounds based on available data
     let points = [];
     
+    // If a specific municipality is selected, prioritize that location
+    if (window.selectedMunicipality && window.selectedMunicipality.latitude && window.selectedMunicipality.longitude) {
+        console.log(`[Map] Centering map on selected municipality: ${window.selectedMunicipality.name}`);
+        // If we have a specific barangay selected and it exists in our data
+        if (window.selectedBarangay && window.selectedBarangay.lat && window.selectedBarangay.lng) {
+            console.log(`[Map] Focusing on selected barangay: ${window.selectedBarangay.name}`);
+            floodMap.setView([window.selectedBarangay.lat, window.selectedBarangay.lng], 14);
+            return; // Exit early since we have a specific point to focus on
+        }
+        
+        // Otherwise focus on the municipality
+        floodMap.setView([window.selectedMunicipality.latitude, window.selectedMunicipality.longitude], 13);
+        return; // Exit early since we have a specific point to focus on
+    }
+    
+    // If we get here, we need to calculate a bounding box for all visible elements
+    
     // Add sensor points
     if (data.sensors && data.sensors.length > 0) {
         data.sensors.forEach(sensor => {
@@ -486,12 +503,37 @@ function updateMapView(data) {
         });
     }
     
+    // Add risk zone points if available
+    if (data.zones && data.zones.length > 0) {
+        data.zones.forEach(zone => {
+            try {
+                // If we have geojson coordinates, extract them
+                const geoJson = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+                if (geoJson && geoJson.geometry && geoJson.geometry.coordinates) {
+                    // For polygons, add each coordinate point
+                    if (geoJson.geometry.type === 'Polygon') {
+                        geoJson.geometry.coordinates[0].forEach(coord => {
+                            points.push([coord[1], coord[0]]); // GeoJSON uses [lng, lat] but Leaflet uses [lat, lng]
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Error parsing zone GeoJSON:', e);
+            }
+        });
+    }
+    
     // Adjust map view if we have points
     if (points.length > 0) {
+        console.log(`[Map] Adjusting map to fit ${points.length} points`);
         floodMap.fitBounds(L.latLngBounds(points), {
             padding: [50, 50],
-            maxZoom: 12
+            maxZoom: 13
         });
+    } else {
+        // Default view if no points (center of Philippines)
+        console.log('[Map] No points to fit, using default view');
+        floodMap.setView([17.135678, 120.437203], 12);
     }
 }
 
