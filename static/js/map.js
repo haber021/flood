@@ -14,10 +14,12 @@ let barangaysLayer;
 // Active view mode
 let activeMapMode = 'risk-zones';
 
-// Selected barangay
+// Selected municipality and barangay
+let selectedMunicipality = null;
 let selectedBarangay = null;
 
-// Store all barangays data
+// Store all data
+let allMunicipalities = [];
 let allBarangays = [];
 
 // Map markers for barangays
@@ -47,6 +49,34 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load initial data
     loadMapData();
+    loadMunicipalityData();
+    
+    // Setup event listeners for municipality selection
+    const municipalitySelector = document.getElementById('municipality-selector');
+    if (municipalitySelector) {
+        municipalitySelector.addEventListener('change', function() {
+            const selectedId = this.value;
+            if (selectedId) {
+                // Find the selected municipality object
+                const municipality = allMunicipalities.find(m => m.id.toString() === selectedId);
+                if (municipality) {
+                    selectedMunicipality = municipality;
+                    // Clear barangay selection when municipality changes
+                    document.getElementById('barangay-selector').value = '';
+                    selectedBarangay = null;
+                    resetBarangayHighlights();
+                    document.getElementById('focus-selected-barangay').disabled = true;
+                    // Filter barangays by municipality
+                    setupBarangaySelector();
+                }
+            } else {
+                // Clear selection
+                selectedMunicipality = null;
+                // Show all barangays
+                setupBarangaySelector();
+            }
+        });
+    }
     
     // Setup event listeners for barangay selection
     const barangaySelector = document.getElementById('barangay-selector');
@@ -475,6 +505,65 @@ function darkenColor(hex, percent) {
 }
 
 /**
+ * Load municipality data from API
+ */
+function loadMunicipalityData() {
+    fetch('/api/municipalities/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Municipality data received:', data);
+            
+            // Store all municipalities for the selector
+            allMunicipalities = data.results || [];
+            
+            // Update the municipality selector
+            setupMunicipalitySelector();
+        })
+        .catch(error => {
+            console.error('Error loading municipality data:', error);
+        });
+}
+
+/**
+ * Setup the municipality selector dropdown
+ */
+function setupMunicipalitySelector() {
+    const selector = document.getElementById('municipality-selector');
+    if (!selector) return;
+    
+    // Store current value if there is one
+    const currentValue = selector.value;
+    
+    // Clear existing options except the first one
+    while (selector.options.length > 1) {
+        selector.remove(1);
+    }
+    
+    // Sort municipalities alphabetically by name
+    const sortedMunicipalities = [...allMunicipalities].sort((a, b) => {
+        return a.name.localeCompare(b.name);
+    });
+    
+    // Add options for each municipality
+    sortedMunicipalities.forEach(municipality => {
+        const option = document.createElement('option');
+        option.value = municipality.id;
+        option.textContent = municipality.name;
+        selector.appendChild(option);
+    });
+    
+    // Restore previous selection if it exists
+    if (currentValue) {
+        selector.value = currentValue;
+    }
+}
+
+/**
  * Setup the barangay selector dropdown
  */
 function setupBarangaySelector() {
@@ -489,8 +578,16 @@ function setupBarangaySelector() {
         selector.remove(1);
     }
     
+    // Filter barangays by selected municipality if applicable
+    let filteredBarangays = allBarangays;
+    if (selectedMunicipality) {
+        filteredBarangays = allBarangays.filter(
+            barangay => barangay.municipality_id === selectedMunicipality.id
+        );
+    }
+    
     // Sort barangays alphabetically by name
-    const sortedBarangays = [...allBarangays].sort((a, b) => {
+    const sortedBarangays = [...filteredBarangays].sort((a, b) => {
         return a.name.localeCompare(b.name);
     });
     
@@ -513,8 +610,8 @@ function setupBarangaySelector() {
         selector.appendChild(option);
     });
     
-    // Restore previous selection if it exists
-    if (currentValue) {
+    // Restore previous selection if it exists and is in the filtered list
+    if (currentValue && filteredBarangays.some(b => b.id.toString() === currentValue)) {
         selector.value = currentValue;
     }
 }
