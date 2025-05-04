@@ -95,6 +95,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             floodMap.removeLayer(marker);
                         }, 3000);
                     }
+                    
+                    // Trigger all data refresh for the new location
+                    refreshAllDataForNewLocation();
                 }
             } else {
                 // Clear selection
@@ -103,6 +106,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 setupBarangaySelector();
                 // Reset map to default view
                 floodMap.setView([17.135678, 120.437203], 11);
+                
+                // Refresh all data for the default view
+                refreshAllDataForNewLocation();
             }
         });
     }
@@ -122,12 +128,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Auto-focus on the selected barangay
                     focusOnBarangay(barangay);
+                    
+                    // Refresh all data for the selected barangay
+                    refreshAllDataForNewLocation();
                 }
             } else {
                 // Clear selection
                 selectedBarangay = null;
                 resetBarangayHighlights();
                 document.getElementById('focus-selected-barangay').disabled = true;
+                
+                // Refresh all data for the default view
+                refreshAllDataForNewLocation();
             }
         });
     }
@@ -404,6 +416,36 @@ function updateMapView(data) {
             padding: [50, 50],
             maxZoom: 12
         });
+    }
+}
+
+/**
+ * Refresh all data for a new location
+ * This centralizes data refreshing when location changes
+ */
+function refreshAllDataForNewLocation() {
+    console.log('Refreshing all data for new location...');
+    
+    // Refresh map data
+    loadMapData();
+    
+    // Trigger dashboard chart updates if we're on the dashboard
+    if (typeof updateAllCharts === 'function') {
+        updateAllCharts();
+    }
+    
+    // Update prediction data if we're on the prediction page
+    if (typeof updatePredictionModel === 'function') {
+        updatePredictionModel();
+    }
+    
+    // Update any other location-specific data
+    // For example, refresh alerts
+    const alertsContainer = document.getElementById('alerts-container');
+    if (alertsContainer) {
+        if (typeof loadActiveAlerts === 'function') {
+            loadActiveAlerts();
+        }
     }
 }
 
