@@ -12,7 +12,13 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeGauges();
     
     // Load initial sensor data
-    updateSensorData();
+    console.log('Starting to update sensor data...');
+    try {
+        updateSensorData();
+        console.log('Sensor data update completed successfully');
+    } catch (e) {
+        console.error('Error updating sensor data:', e);
+    }
     
     // Check for active alerts
     checkActiveAlerts();

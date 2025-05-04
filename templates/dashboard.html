@@ -379,4 +379,76 @@
 <script src="/static/js/dashboard.js"></script>
 <script src="/static/js/charts.js"></script>
 <script src="/static/js/map.js"></script>
+
+<!-- Direct sensor data fetch -->
+<script>
+// Immediate sensor data fetch to ensure gauges are populated
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Direct sensor data fetch initiated');
+    // Fetch directly from the API
+    fetch('/api/sensor-data/?limit=5')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Direct fetch received data:', data);
+            if (data && data.results && data.results.length > 0) {
+                // Update each gauge directly
+                data.results.forEach(reading => {
+                    const sensorType = reading.sensor_type;
+                    const value = reading.value;
+                    const timestamp = new Date(reading.timestamp);
+                    
+                    // Update the appropriate gauge
+                    let gaugeId, unitSymbol, timestampId;
+                    
+                    switch(sensorType) {
+                        case 'temperature':
+                            gaugeId = 'temperature-gauge';
+                            unitSymbol = '°C';
+                            timestampId = '#temp-updated';
+                            break;
+                        case 'humidity':
+                            gaugeId = 'humidity-gauge';
+                            unitSymbol = '%';
+                            timestampId = '#humidity-updated';
+                            break;
+                        case 'rainfall':
+                            gaugeId = 'rainfall-gauge';
+                            unitSymbol = 'mm';
+                            timestampId = '#rainfall-updated';
+                            break;
+                        case 'water_level':
+                            gaugeId = 'water-level-gauge';
+                            unitSymbol = 'm';
+                            timestampId = '#water-level-updated';
+                            break;
+                        case 'wind_speed':
+                            gaugeId = 'wind-speed-gauge';
+                            unitSymbol = 'km/h';
+                            timestampId = '#wind-speed-updated';
+                            break;
+                    }
+                    
+                    if (gaugeId) {
+                        console.log(`Direct update: ${gaugeId} with value ${value} ${unitSymbol}`);
+                        const gaugeElement = document.getElementById(gaugeId);
+                        if (gaugeElement) {
+                            const valueElement = gaugeElement.querySelector('.gauge-value');
+                            if (valueElement) {
+                                valueElement.textContent = value.toFixed(1);
+                            }
+                        }
+                        
+                        const timestampElement = document.querySelector(timestampId);
+                        if (timestampElement) {
+                            timestampElement.textContent = 'Last updated: ' + timestamp.toLocaleString();
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error in direct sensor data fetch:', error);
+        });
+});
+</script>
 {% endblock %}
