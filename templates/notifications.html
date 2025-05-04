@@ -428,14 +428,32 @@
                     labels: ['SMS', 'Email', 'App Notification'],
                     datasets: [{
                         data: [
-                            {% with sms_count=notifications|selectattr:"notification_type"|selectattr:"sms"|list|length %}
-                                {{ sms_count|default:0 }},
+                            {% with sms_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.notification_type == 'sms' %}
+                                        {% with sms_count=sms_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ sms_count }},
                             {% endwith %}
-                            {% with email_count=notifications|selectattr:"notification_type"|selectattr:"email"|list|length %}
-                                {{ email_count|default:0 }},
+                            {% with email_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.notification_type == 'email' %}
+                                        {% with email_count=email_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ email_count }},
                             {% endwith %}
-                            {% with app_count=notifications|selectattr:"notification_type"|selectattr:"app"|list|length %}
-                                {{ app_count|default:0 }}
+                            {% with app_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.notification_type == 'app' %}
+                                        {% with app_count=app_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ app_count }}
                             {% endwith %}
                         ],
                         backgroundColor: ['#0d6efd', '#198754', '#0dcaf0']
@@ -460,17 +478,41 @@
                     labels: ['Delivered', 'Sent', 'Failed', 'Pending'],
                     datasets: [{
                         data: [
-                            {% with delivered=notifications|selectattr:"status"|selectattr:"delivered"|list|length %}
-                                {{ delivered|default:0 }},
+                            {% with delivered_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.status == 'delivered' %}
+                                        {% with delivered_count=delivered_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ delivered_count }},
                             {% endwith %}
-                            {% with sent=notifications|selectattr:"status"|selectattr:"sent"|list|length %}
-                                {{ sent|default:0 }},
+                            {% with sent_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.status == 'sent' %}
+                                        {% with sent_count=sent_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ sent_count }},
                             {% endwith %}
-                            {% with failed=notifications|selectattr:"status"|selectattr:"failed"|list|length %}
-                                {{ failed|default:0 }},
+                            {% with failed_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.status == 'failed' %}
+                                        {% with failed_count=failed_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ failed_count }},
                             {% endwith %}
-                            {% with pending=notifications|selectattr:"status"|selectattr:"pending"|list|length %}
-                                {{ pending|default:0 }}
+                            {% with pending_count=0 %}
+                                {% for notification in notifications %}
+                                    {% if notification.status == 'pending' %}
+                                        {% with pending_count=pending_count|add:1 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ pending_count }}
                             {% endwith %}
                         ],
                         backgroundColor: ['#198754', '#0dcaf0', '#dc3545', '#ffc107']
