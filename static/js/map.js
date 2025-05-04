@@ -444,7 +444,7 @@ function processSensors(sensors) {
             .addTo(sensorsLayer);
         
         // Add animation for active sensors
-        if (sensor.value !== null) {
+        if (sensor.value !== null && marker._icon) {
             marker._icon.classList.add('pulse-icon');
         }
     });
@@ -761,8 +761,8 @@ function displayMunicipalityBarangays() {
     
     // If no municipality is selected, show the message
     if (!window.selectedMunicipality) {
-        noMunicipalitySelectedDiv.classList.remove('d-none');
-        municipalityBarangaysList.classList.add('d-none');
+        if (noMunicipalitySelectedDiv) noMunicipalitySelectedDiv.classList.remove('d-none');
+        if (municipalityBarangaysList) municipalityBarangaysList.classList.add('d-none');
         return;
     }
     
@@ -772,8 +772,8 @@ function displayMunicipalityBarangays() {
     }
     
     // Hide the no municipality selected message and show the barangay list
-    noMunicipalitySelectedDiv.classList.add('d-none');
-    municipalityBarangaysList.classList.remove('d-none');
+    if (noMunicipalitySelectedDiv) noMunicipalitySelectedDiv.classList.add('d-none');
+    if (municipalityBarangaysList) municipalityBarangaysList.classList.remove('d-none');
     
     // Convert to integer for consistent comparison
     const municipalityIdInt = parseInt(window.selectedMunicipality.id);
