@@ -68,12 +68,41 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('focus-selected-barangay').disabled = true;
                     // Filter barangays by municipality
                     setupBarangaySelector();
+                    
+                    // Auto-adjust map to focus on the selected municipality
+                    if (municipality.latitude && municipality.longitude) {
+                        // Set the map view to the municipality location with appropriate zoom level
+                        floodMap.setView([municipality.latitude, municipality.longitude], 13);
+                        // Show a temporary marker to highlight the municipality center
+                        const marker = L.marker([municipality.latitude, municipality.longitude], {
+                            icon: L.divIcon({
+                                className: 'municipality-highlight',
+                                html: `<div style="background-color: #0d6efd; width: 20px; height: 20px; border-radius: 50%; 
+                                        border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10]
+                            })
+                        }).addTo(floodMap);
+                        // Add a popup with municipality info
+                        marker.bindPopup(`
+                            <strong>${municipality.name}</strong><br>
+                            Province: ${municipality.province}<br>
+                            Population: ${municipality.population.toLocaleString()}<br>
+                            Contact: ${municipality.contact_person || 'N/A'}
+                        `).openPopup();
+                        // Remove the marker after 3 seconds
+                        setTimeout(() => {
+                            floodMap.removeLayer(marker);
+                        }, 3000);
+                    }
                 }
             } else {
                 // Clear selection
                 selectedMunicipality = null;
                 // Show all barangays
                 setupBarangaySelector();
+                // Reset map to default view
+                floodMap.setView([17.135678, 120.437203], 11);
             }
         });
     }
@@ -90,6 +119,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     selectedBarangay = barangay;
                     highlightSelectedBarangay(barangay);
                     document.getElementById('focus-selected-barangay').disabled = false;
+                    
+                    // Auto-focus on the selected barangay
+                    focusOnBarangay(barangay);
                 }
             } else {
                 // Clear selection
@@ -670,5 +702,35 @@ function focusOnBarangay(barangay) {
         
         // Switch to barangays view mode
         setMapMode('barangays');
+        
+        // Show a temporary highlight effect
+        const highlightMarker = L.circleMarker([barangay.lat, barangay.lng], {
+            radius: 30,
+            color: '#ffc107',
+            weight: 3,
+            opacity: 0.8,
+            fillOpacity: 0.2,
+            interactive: false
+        }).addTo(floodMap);
+        
+        // Animate the highlight
+        function animateHighlight() {
+            let opacity = 0.8;
+            let radius = 30;
+            const interval = setInterval(() => {
+                opacity -= 0.05;
+                radius += 2;
+                highlightMarker.setStyle({
+                    opacity: opacity,
+                    radius: radius
+                });
+                if (opacity <= 0.1) {
+                    clearInterval(interval);
+                    floodMap.removeLayer(highlightMarker);
+                }
+            }, 50);
+        }
+        
+        animateHighlight();
     }
 }
