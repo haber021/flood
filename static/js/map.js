@@ -1193,14 +1193,8 @@ function createSensorIcon(sensor) {
  * Helper function to get color based on severity level
  */
 function getSeverityColor(severity) {
-    switch (parseInt(severity)) {
-        case 5: return '#7F0000'; // Catastrophic
-        case 4: return '#DC3545'; // Emergency
-        case 3: return '#FD7E14'; // Warning
-        case 2: return '#FFC107'; // Watch
-        case 1: return '#0DCAF0'; // Advisory
-        default: return '#198754'; // Normal
-    }
+    // Simplified color scheme: only green (normal) and red (danger)
+    return parseInt(severity) > 0 ? '#DC3545' : '#198754'; // Red for danger, Green for normal
 }
 
 /**
