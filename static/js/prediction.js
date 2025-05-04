@@ -102,17 +102,18 @@ function initializeHistoricalChart() {
                 label: 'Current Data',
                 data: [],
                 borderColor: 'rgb(54, 162, 235)',
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                backgroundColor: 'rgba(54, 162, 235, 0.05)',
                 borderWidth: 2,
-                tension: 0.2,
-                pointRadius: 3,
-                pointHoverRadius: 5
+                tension: 0.1,
+                pointRadius: 2,
+                pointHoverRadius: 4,
+                fill: true
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            aspectRatio: 2, // Control the aspect ratio
+            aspectRatio: 3, // Flatter aspect ratio like in the drawing
             scales: {
                 y: {
                     beginAtZero: false,
@@ -129,7 +130,7 @@ function initializeHistoricalChart() {
                     },
                     grid: {
                         display: true,
-                        color: 'rgba(0, 0, 0, 0.05)'
+                        color: 'rgba(0, 0, 0, 0.03)'
                     }
                 },
                 x: {
@@ -318,13 +319,14 @@ function addHistoricalComparisonData() {
                 historicalChart.data.datasets.push({
                     label: 'Historical Average (Past 3 Years)',
                     data: data.historical_values,
-                    borderColor: 'rgba(128, 128, 128, 0.7)',
-                    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+                    borderColor: 'rgba(180, 180, 180, 0.7)',
+                    backgroundColor: 'rgba(180, 180, 180, 0.05)',
                     borderWidth: 1,
-                    borderDash: [5, 5],
-                    tension: 0.2,
-                    pointRadius: 2,
-                    pointHoverRadius: 4
+                    borderDash: [3, 3],
+                    tension: 0.1,
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    fill: true
                 });
                 
                 // Update the chart
@@ -342,7 +344,7 @@ function addHistoricalComparisonData() {
                 addThresholdLine(threshold, 'Flood Stage', 'rgba(220, 53, 69, 0.7)');
             } else if (currentHistoricalMode === 'rainfall') {
                 // Add advisory threshold for significant rainfall (25mm/day)
-                addThresholdLine(25, 'Heavy Rainfall Advisory', 'rgba(255, 193, 7, 0.7)');
+                addThresholdLine(25, 'Heavy Rainfall Advisory', 'rgba(220, 53, 69, 0.9)');
             }
         })
         .catch(error => {
@@ -373,8 +375,8 @@ function addThresholdLine(value, label, color) {
             data: thresholdData,
             borderColor: color,
             backgroundColor: 'transparent',
-            borderWidth: 2,
-            borderDash: [5, 5],
+            borderWidth: 1.5,
+            borderDash: [],
             pointRadius: 0,
             pointHoverRadius: 0,
             tension: 0,
