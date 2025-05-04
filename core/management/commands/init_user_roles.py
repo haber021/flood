@@ -91,6 +91,10 @@ class Command(BaseCommand):
                 is_staff=True  # Needed for admin access
             )
             user.groups.add(group)
-            user.profile.role = role
-            user.profile.save()
+            # Create profile if it doesn't exist
+            if not hasattr(user, 'profile'):
+                profile = UserProfile.objects.create(user=user, role=role)
+            else:
+                user.profile.role = role
+                user.profile.save()
             self.stdout.write(f'Created test user: {username} ({role})')
