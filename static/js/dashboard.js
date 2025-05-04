@@ -58,6 +58,10 @@ function updateSensorData() {
     // Add location parameters if available
     if (window.selectedMunicipality) {
         url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`[Sensors] Adding municipality filter: ${window.selectedMunicipality.name}`);
+    }
+    
+    console.log(`[Sensors] Fetching sensor data with URL: ${url}`);
         console.log(`[Sensor Data] Adding municipality filter: ${window.selectedMunicipality.name}`);
     }
     
