@@ -138,10 +138,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script>
         // Register the zoom plugin globally
-        if (Chart.register) {
+        if (Chart && Chart.register) {
             try {
-                Chart.register(ChartZoom);
-                console.log('Chart.js zoom plugin registered successfully');
+                // Ensure the plugin is available under the correct name
+                const zoomPlugin = window.ChartZoom || window.chartjs_plugin_zoom;
+                if (zoomPlugin) {
+                    Chart.register(zoomPlugin);
+                    console.log('Chart.js zoom plugin registered successfully');
+                } else {
+                    console.warn('Chart.js zoom plugin not found in global namespace');
+                }
             } catch (e) {
                 console.error('Failed to register Chart.js zoom plugin:', e);
             }
