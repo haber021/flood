@@ -71,38 +71,38 @@ function updateSensorData() {
         .then(response => response.json())
         .then(data => {
             if (!data.results || data.results.length === 0) {
-                console.warn('No sensor data available');
+                console.warn('No sensor data available with location filters');
+                
+                // If no data with location filters, try getting global sensor data
+                if (window.selectedMunicipality && !window.isRetrySensorFetch) {
+                    console.log('Retrying sensor data fetch without municipality filter as fallback');
+                    window.isRetrySensorFetch = true;
+                    
+                    // Fetch global data (without location filters)
+                    fetch('/api/sensor-data/?limit=5')
+                        .then(response => response.json())
+                        .then(globalData => {
+                            window.isRetrySensorFetch = false;
+                            
+                            if (!globalData.results || globalData.results.length === 0) {
+                                console.warn('No global sensor data available');
+                                return;
+                            }
+                            
+                            console.log('Using global sensor data as fallback');
+                            // Use the global data instead
+                            updateGaugesWithData(globalData.results);
+                        })
+                        .catch(error => {
+                            window.isRetrySensorFetch = false;
+                            console.error('Error fetching global sensor data:', error);
+                        });
+                }
                 return;
             }
             
-            // Process each sensor type
-            data.results.forEach(reading => {
-                const sensorType = reading.sensor_type;
-                const value = reading.value;
-                const timestamp = new Date(reading.timestamp);
-                
-                // Update appropriate gauge based on sensor type
-                switch(sensorType) {
-                    case 'temperature':
-                        updateGauge('temperature-gauge', value, '°C', '#temp-updated', timestamp);
-                        break;
-                    case 'humidity':
-                        updateGauge('humidity-gauge', value, '%', '#humidity-updated', timestamp);
-                        break;
-                    case 'rainfall':
-                        updateGauge('rainfall-gauge', value, 'mm', '#rainfall-updated', timestamp);
-                        break;
-                    case 'water_level':
-                        updateGauge('water-level-gauge', value, 'm', '#water-level-updated', timestamp);
-                        break;
-                    case 'wind_speed':
-                        updateGauge('wind-speed-gauge', value, 'km/h', '#wind-speed-updated', timestamp);
-                        break;
-                }
-            });
-            
-            // Update map last updated timestamp
-            document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
+            // Process received data
+            updateGaugesWithData(data.results);
         })
         .catch(error => {
             // Check if map-last-updated element exists before trying to update it
@@ -114,6 +114,45 @@ function updateSensorData() {
             // Log the error but don't display the empty object in the console
             console.error('Error fetching sensor data:', error.message || 'Network or server error');
         });
+}
+
+/**
+ * Process sensor readings and update gauge displays
+ */
+function updateGaugesWithData(readings) {
+    if (!readings || readings.length === 0) {
+        console.warn('No readings provided to updateGaugesWithData');
+        return;
+    }
+    
+    // Process each sensor type
+    readings.forEach(reading => {
+        const sensorType = reading.sensor_type;
+        const value = reading.value;
+        const timestamp = new Date(reading.timestamp);
+        
+        // Update appropriate gauge based on sensor type
+        switch(sensorType) {
+            case 'temperature':
+                updateGauge('temperature-gauge', value, '°C', '#temp-updated', timestamp);
+                break;
+            case 'humidity':
+                updateGauge('humidity-gauge', value, '%', '#humidity-updated', timestamp);
+                break;
+            case 'rainfall':
+                updateGauge('rainfall-gauge', value, 'mm', '#rainfall-updated', timestamp);
+                break;
+            case 'water_level':
+                updateGauge('water-level-gauge', value, 'm', '#water-level-updated', timestamp);
+                break;
+            case 'wind_speed':
+                updateGauge('wind-speed-gauge', value, 'km/h', '#wind-speed-updated', timestamp);
+                break;
+        }
+    });
+    
+    // Update map last updated timestamp
+    document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
 }
 
 /**
@@ -206,6 +245,39 @@ function checkActiveAlerts() {
     fetch(url)
         .then(response => response.json())
         .then(data => {
+            // If no results with municipality filter, try getting global data
+            if ((!data.results || data.results.length === 0) && 
+                window.selectedMunicipality && 
+                !window.isRetryAlertsFetch) {
+                console.log('No alerts found with location filters, trying global alerts as fallback');
+                window.isRetryAlertsFetch = true;
+                
+                // Fetch global alerts (without location filters)
+                fetch('/api/flood-alerts/?active=true')
+                    .then(response => response.json())
+                    .then(globalData => {
+                        window.isRetryAlertsFetch = false;
+                        processAlertsData(globalData);
+                    })
+                    .catch(error => {
+                        window.isRetryAlertsFetch = false;
+                        console.error('Error fetching global alerts:', error);
+                    });
+                return;
+            }
+            
+            // Process the alerts data
+            processAlertsData(data);
+        })
+        .catch(error => {
+            console.error('Error checking alerts:', error);
+        });
+}
+
+/**
+ * Process alerts data and update UI
+ */
+function processAlertsData(data) {
             const alertsContainer = document.getElementById('alerts-list');
             const noAlertsElement = document.getElementById('no-alerts');
             

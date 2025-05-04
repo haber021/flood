@@ -286,6 +286,25 @@ def get_chart_data(request):
     
     data = SensorData.objects.filter(**filters).order_by('timestamp')
     
+    # If no data found with municipality filter, try getting global data
+    if not data.exists() and municipality_id:
+        # Log the fallback for debugging
+        print(f"No {chart_type} data found for municipality {municipality_id}, using global data")
+        
+        # Build a new filter without the municipality filter
+        global_filters = {
+            'sensor__sensor_type': chart_type,
+            'timestamp__gte': start_date,
+            'timestamp__lte': end_date
+        }
+        
+        # Get the most recent global data
+        global_data = SensorData.objects.filter(**global_filters).order_by('timestamp')
+        
+        # If global data is found, use it
+        if global_data.exists():
+            data = global_data
+    
     # Format timestamps based on the time range
     if days >= 30:  # Monthly view
         date_format = '%b %d'
