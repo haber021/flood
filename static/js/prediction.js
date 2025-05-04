@@ -91,6 +91,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeHistoricalChart() {
     const ctx = document.getElementById('historical-chart').getContext('2d');
     
+    // Get container width - important for proper sizing
+    const container = document.getElementById('historical-chart-container');
+    
     historicalChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -109,6 +112,7 @@ function initializeHistoricalChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            aspectRatio: 2, // Control the aspect ratio
             scales: {
                 y: {
                     beginAtZero: false,
