@@ -345,3 +345,68 @@ def get_unit_for_sensor_type(sensor_type):
         'wind_speed': 'km/h',
     }
     return units.get(sensor_type, '')
+
+@login_required
+def get_latest_sensor_data(request):
+    """API endpoint to get the latest sensor data"""
+    # Get limit parameter (default to 5)
+    limit = int(request.GET.get('limit', 5))
+    
+    # Get the latest reading for each sensor type
+    latest_readings = []
+    
+    for sensor_type in ['temperature', 'humidity', 'rainfall', 'water_level', 'wind_speed']:
+        reading = SensorData.objects.filter(
+            sensor__sensor_type=sensor_type
+        ).order_by('-timestamp').first()
+        
+        if reading:
+            latest_readings.append({
+                'id': reading.id,
+                'sensor_id': reading.sensor.id,
+                'sensor_name': reading.sensor.name,
+                'sensor_type': reading.sensor.sensor_type,
+                'value': reading.value,
+                'timestamp': reading.timestamp,
+                'unit': get_unit_for_sensor_type(reading.sensor.sensor_type)
+            })
+    
+    # Return as JSON
+    return JsonResponse({
+        'count': len(latest_readings),
+        'results': latest_readings[:limit]
+    })
+
+@login_required
+def get_flood_alerts(request):
+    """API endpoint to get flood alerts"""
+    # Check if we only want active alerts
+    active_only = request.GET.get('active', 'false').lower() == 'true'
+    
+    # Get alerts, filtered if needed
+    if active_only:
+        alerts = FloodAlert.objects.filter(active=True).order_by('-severity_level', '-issued_at')
+    else:
+        alerts = FloodAlert.objects.all().order_by('-issued_at')
+    
+    # Format alerts for JSON response
+    alert_data = []
+    for alert in alerts:
+        alert_data.append({
+            'id': alert.id,
+            'title': alert.title,
+            'description': alert.description,
+            'severity_level': alert.severity_level,
+            'active': alert.active,
+            'predicted_flood_time': alert.predicted_flood_time,
+            'issued_at': alert.issued_at,
+            'updated_at': alert.updated_at,
+            'issued_by_username': alert.issued_by.username if alert.issued_by else 'System',
+            'affected_barangay_count': alert.affected_barangays.count()
+        })
+    
+    # Return as JSON
+    return JsonResponse({
+        'count': len(alert_data),
+        'results': alert_data
+    })

@@ -96,9 +96,26 @@ function setMapMode(mode) {
  * Load map data from API
  */
 function loadMapData() {
+    // Show loading status on the map
+    if (document.getElementById('map-last-updated')) {
+        document.getElementById('map-last-updated').textContent = 'Loading data...';
+    }
+    
     fetch('/api/map-data/')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Map data received:', data);
+            
+            // Clear existing layers
+            riskZonesLayer.clearLayers();
+            sensorsLayer.clearLayers();
+            barangaysLayer.clearLayers();
+            
             // Process flood risk zones
             processFloodRiskZones(data.zones || []);
             
@@ -112,10 +129,22 @@ function loadMapData() {
             updateMapView(data);
             
             // Update last updated timestamp
-            document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
+            if (document.getElementById('map-last-updated')) {
+                document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
+            }
         })
         .catch(error => {
             console.error('Error loading map data:', error);
+            
+            // Show error on map
+            if (document.getElementById('map-last-updated')) {
+                document.getElementById('map-last-updated').textContent = 'Error loading map data';
+            }
+            
+            // Clear layers on error
+            riskZonesLayer.clearLayers();
+            sensorsLayer.clearLayers();
+            barangaysLayer.clearLayers();
         });
 }
 

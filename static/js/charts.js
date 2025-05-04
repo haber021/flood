@@ -169,17 +169,45 @@ function loadChartData(sensorType) {
             return;
     }
     
+    // Show loading state
+    if (chart) {
+        chart.data.labels = ['Loading...'];
+        chart.data.datasets[0].data = [0];
+        chart.update();
+    }
+    
     // Fetch data from API
     fetch(`/api/chart-data/?type=${sensorType}&days=${chartTimePeriod}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            // Ensure we have valid data
+            if (!data.labels || !data.values || data.labels.length === 0) {
+                console.warn(`No chart data available for ${sensorType}`);
+                chart.data.labels = ['No Data Available'];
+                chart.data.datasets[0].data = [0];
+                chart.update();
+                return;
+            }
+            
             // Update chart with new data
-            chart.data.labels = data.labels || [];
-            chart.data.datasets[0].data = data.values || [];
+            chart.data.labels = data.labels;
+            chart.data.datasets[0].data = data.values;
             chart.update();
+            
+            console.log(`Updated ${sensorType} chart with ${data.labels.length} data points`);
         })
         .catch(error => {
             console.error(`Error loading ${sensorType} chart data:`, error);
+            if (chart) {
+                chart.data.labels = ['Error Loading Data'];
+                chart.data.datasets[0].data = [0];
+                chart.update();
+            }
         });
 }
 

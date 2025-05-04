@@ -22,4 +22,6 @@ urlpatterns = [
     # API endpoints for frontend
     path('api/chart-data/', views.get_chart_data, name='get_chart_data'),
     path('api/map-data/', views.get_map_data, name='get_map_data'),
+    path('api/sensor-data/', views.get_latest_sensor_data, name='get_latest_sensor_data'),
+    path('api/flood-alerts/', views.get_flood_alerts, name='get_flood_alerts'),
 ]
