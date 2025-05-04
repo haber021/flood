@@ -58,12 +58,10 @@ function updateSensorData() {
     // Add location parameters if available
     if (window.selectedMunicipality) {
         url += `&municipality_id=${window.selectedMunicipality.id}`;
-        console.log(`[Sensors] Adding municipality filter: ${window.selectedMunicipality.name}`);
-    }
-    
-    console.log(`[Sensors] Fetching sensor data with URL: ${url}`);
         console.log(`[Sensor Data] Adding municipality filter: ${window.selectedMunicipality.name}`);
     }
+    
+    console.log(`[Sensor Data] Fetching sensor data with URL: ${url}`);
     
     if (window.selectedBarangay) {
         url += `&barangay_id=${window.selectedBarangay.id}`;
@@ -144,6 +142,7 @@ function updateSensorData() {
             }
             
             // Process received data
+            console.log('[Sensor Data] Received data:', data.results);
             updateGaugesWithData(data.results);
         })
         .catch(error => {
@@ -178,21 +177,28 @@ function updateGaugesWithData(readings) {
         const value = reading.value;
         const timestamp = new Date(reading.timestamp);
         
+        console.log(`[Sensor Data] Processing ${sensorType} reading with value ${value}`);
+        
         // Update appropriate gauge based on sensor type
         switch(sensorType) {
             case 'temperature':
+                console.log(`[Sensor Data] Updating temperature gauge with value ${value}°C`);
                 updateGauge('temperature-gauge', value, '°C', '#temp-updated', timestamp);
                 break;
             case 'humidity':
+                console.log(`[Sensor Data] Updating humidity gauge with value ${value}%`);
                 updateGauge('humidity-gauge', value, '%', '#humidity-updated', timestamp);
                 break;
             case 'rainfall':
+                console.log(`[Sensor Data] Updating rainfall gauge with value ${value}mm`);
                 updateGauge('rainfall-gauge', value, 'mm', '#rainfall-updated', timestamp);
                 break;
             case 'water_level':
+                console.log(`[Sensor Data] Updating water level gauge with value ${value}m`);
                 updateGauge('water-level-gauge', value, 'm', '#water-level-updated', timestamp);
                 break;
             case 'wind_speed':
+                console.log(`[Sensor Data] Updating wind speed gauge with value ${value}km/h`);
                 updateGauge('wind-speed-gauge', value, 'km/h', '#wind-speed-updated', timestamp);
                 break;
         }
@@ -206,20 +212,28 @@ function updateGaugesWithData(readings) {
  * Update a gauge with new value
  */
 function updateGauge(gaugeId, value, unit, timestampElementId, timestamp = null) {
+    console.log(`[Gauge] Updating gauge ${gaugeId} with value ${value}${unit}`);
     const gaugeElement = document.getElementById(gaugeId);
-    if (!gaugeElement) return;
+    if (!gaugeElement) {
+        console.error(`[Gauge] Could not find gauge element with ID ${gaugeId}`);
+        return;
+    }
     
     // Update the gauge value
     const valueElement = gaugeElement.querySelector('.gauge-value');
     if (valueElement) {
         // Format value to 1 decimal place unless it's null/undefined
         if (value !== null && value !== undefined && !isNaN(value)) {
+            console.log(`[Gauge] Setting ${gaugeId} value to ${value.toFixed(1)}${unit}`);
             valueElement.textContent = value.toFixed(1);
             // Change gauge color based on value if appropriate
             updateGaugeColor(gaugeId, value);
         } else {
+            console.warn(`[Gauge] Setting ${gaugeId} to '--' (null/undefined/NaN value)`);
             valueElement.textContent = '--';
         }
+    } else {
+        console.error(`[Gauge] Could not find .gauge-value element within ${gaugeId}`);
     }
     
     // Update the timestamp if provided
