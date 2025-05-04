@@ -22,6 +22,9 @@ window.selectedBarangay = null;
 let allMunicipalities = [];
 let allBarangays = [];
 
+// Track which municipalities have had their barangays loaded
+let loadedMunicipalityBarangays = [];
+
 // Map markers for barangays
 let barangayMarkers = {};
 
@@ -69,7 +72,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.selectedBarangay = null;
                     resetBarangayHighlights();
                     document.getElementById('focus-selected-barangay').disabled = true;
-                    // Filter barangays by municipality
+                    
+                    // Load all barangays for this municipality
+                    loadBarangaysForMunicipality(municipality.id);
+                    
+                    // Filter barangays by municipality for the dropdown
                     setupBarangaySelector();
                     
                     // Auto-adjust map to focus on the selected municipality
@@ -450,6 +457,59 @@ function updateMapView(data) {
  * This centralizes data refreshing when location changes
  */
 /**
+ * Load all barangays for a specific municipality ID 
+ */
+function loadBarangaysForMunicipality(municipalityId) {
+    if (!municipalityId) return;
+    
+    // Check if we've already loaded barangays for this municipality to avoid duplicate requests
+    if (loadedMunicipalityBarangays.includes(parseInt(municipalityId))) {
+        console.log(`[Barangays] Already loaded barangays for municipality ID ${municipalityId}, using cached data`);
+        displayMunicipalityBarangays();
+        return;
+    }
+
+    const url = `/api/barangays/?municipality_id=${municipalityId}`;
+    const municipalityName = window.selectedMunicipality ? window.selectedMunicipality.name : 'selected municipality';
+    
+    console.log(`[Barangays] Automatically loading all barangays for ${municipalityName} (ID: ${municipalityId})`);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Store all the barangays for this municipality in our global array
+            if (data.results && data.results.length > 0) {
+                console.log(`[Barangays] Found ${data.results.length} barangays for ${municipalityName}`);
+                
+                // We need to update allBarangays with these results
+                // Filter out any existing barangays with the same municipality_id
+                allBarangays = allBarangays.filter(b => b.municipality_id !== parseInt(municipalityId));
+                
+                // Add the new barangays
+                allBarangays = [...allBarangays, ...data.results];
+                
+                // Mark this municipality as loaded
+                loadedMunicipalityBarangays.push(parseInt(municipalityId));
+                
+                // Make sure the barangays section updates
+                displayMunicipalityBarangays();
+            } else {
+                console.log(`[Barangays] No barangays found for ${municipalityName}`);
+                // Even though we didn't find any, mark as loaded to prevent repeated requests
+                loadedMunicipalityBarangays.push(parseInt(municipalityId));
+            }
+        })
+        .catch(error => {
+            console.error(`Error loading barangays for municipality ${municipalityId}:`, error);
+        });
+}
+
+/**
  * Display all barangays for the selected municipality
  */
 function displayMunicipalityBarangays() {
@@ -478,72 +538,62 @@ function displayMunicipalityBarangays() {
     noMunicipalitySelectedDiv.classList.add('d-none');
     municipalityBarangaysList.classList.remove('d-none');
     
-    // Get barangays for the selected municipality
-    const url = `/api/barangays/?municipality_id=${window.selectedMunicipality.id}`;
+    // Filter the already loaded barangays for this municipality
+    const municipalityBarangays = allBarangays.filter(
+        b => b.municipality_id === window.selectedMunicipality.id
+    );
     
-    console.log(`[Municipal Barangays] Fetching barangays for ${window.selectedMunicipality.name} with URL: ${url}`);
+    if (municipalityBarangays.length === 0) {
+        // If we don't have any barangays for this municipality yet, load them
+        loadBarangaysForMunicipality(window.selectedMunicipality.id);
+        return;
+    }
+            
+    console.log(`[Municipal Barangays] Displaying ${municipalityBarangays.length} barangays for ${window.selectedMunicipality.name}`);
     
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            if (!data.results || data.results.length === 0) {
-                municipalityBarangayCards.innerHTML = `
-                    <div class="col-12 text-center py-4">
-                        <div class="text-muted">
-                            <i class="fas fa-info-circle fa-2x mb-3"></i>
-                            <h5>No barangays found for ${window.selectedMunicipality.name}</h5>
-                        </div>
+    // Sort barangays alphabetically
+    const sortedBarangays = [...municipalityBarangays].sort((a, b) => a.name.localeCompare(b.name));
+    
+    if (sortedBarangays.length === 0) {
+        municipalityBarangayCards.innerHTML = `
+            <div class="col-12 text-center py-4">
+                <div class="text-muted">
+                    <i class="fas fa-info-circle fa-2x mb-3"></i>
+                    <h5>No barangays found for ${window.selectedMunicipality.name}</h5>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create cards for each barangay
+    let cardsHtml = '';
+    
+    sortedBarangays.forEach(barangay => {
+        cardsHtml += `
+            <div class="col-md-4 col-lg-3 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">${barangay.name}</h6>
                     </div>
-                `;
-                return;
-            }
-            
-            console.log(`[Municipal Barangays] Found ${data.results.length} barangays for ${window.selectedMunicipality.name}`);
-            
-            // Sort barangays alphabetically
-            const sortedBarangays = [...data.results].sort((a, b) => a.name.localeCompare(b.name));
-            
-            // Create cards for each barangay
-            let cardsHtml = '';
-            
-            sortedBarangays.forEach(barangay => {
-                cardsHtml += `
-                    <div class="col-md-4 col-lg-3 mb-3">
-                        <div class="card h-100">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">${barangay.name}</h6>
-                            </div>
-                            <div class="card-body">
-                                <p><strong>Population:</strong> ${barangay.population.toLocaleString()}</p>
-                                <p><strong>Area:</strong> ${barangay.area_sqkm} km²</p>
-                                ${barangay.contact_person ? `<p><strong>Contact:</strong> ${barangay.contact_person}</p>` : ''}
-                                ${barangay.contact_number ? `<p><strong>Phone:</strong> ${barangay.contact_number}</p>` : ''}
-                            </div>
-                            <div class="card-footer">
-                                <button class="btn btn-sm btn-primary w-100" onclick="highlightBarangay(${parseInt(barangay.id)})">
-                                    <i class="fas fa-map-marker-alt me-1"></i> Show on Map
-                                </button>
-                            </div>
-                        </div>
+                    <div class="card-body">
+                        <p><strong>Population:</strong> ${barangay.population.toLocaleString()}</p>
+                        <p><strong>Area:</strong> ${barangay.area_sqkm} km²</p>
+                        ${barangay.contact_person ? `<p><strong>Contact:</strong> ${barangay.contact_person}</p>` : ''}
+                        ${barangay.contact_number ? `<p><strong>Phone:</strong> ${barangay.contact_number}</p>` : ''}
                     </div>
-                `;
-            });
-            
-            // Update the cards container
-            municipalityBarangayCards.innerHTML = cardsHtml;
-        })
-        .catch(error => {
-            console.error('Error fetching barangays for municipality:', error);
-            municipalityBarangayCards.innerHTML = `
-                <div class="col-12 text-center py-4">
-                    <div class="text-danger">
-                        <i class="fas fa-exclamation-circle fa-2x mb-3"></i>
-                        <h5>Error loading barangays</h5>
-                        <p>Could not load barangays for ${window.selectedMunicipality ? window.selectedMunicipality.name : 'selected municipality'}.</p>
+                    <div class="card-footer">
+                        <button class="btn btn-sm btn-primary w-100" onclick="highlightBarangay(${parseInt(barangay.id)})">
+                            <i class="fas fa-map-marker-alt me-1"></i> Show on Map
+                        </button>
                     </div>
                 </div>
-            `;
-        });
+            </div>
+        `;
+    });
+    
+    // Update the cards container
+    municipalityBarangayCards.innerHTML = cardsHtml;
 }
 
 function refreshAllDataForNewLocation() {
@@ -769,10 +819,42 @@ function loadMunicipalityData() {
             
             // Update the municipality selector
             setupMunicipalitySelector();
+            
+            // Preload barangays for all municipalities
+            preloadAllBarangays();
         })
         .catch(error => {
             console.error('Error loading municipality data:', error);
         });
+}
+
+/**
+ * Preload barangays for all municipalities in the background
+ */
+function preloadAllBarangays() {
+    if (allMunicipalities.length === 0) return;
+    
+    console.log(`[Barangays] Preloading barangays for all ${allMunicipalities.length} municipalities in the background...`);
+    
+    // Define a function to load barangays for a single municipality
+    const loadMunicipalityBarangays = (index) => {
+        if (index >= allMunicipalities.length) {
+            console.log(`[Barangays] Completed preloading barangays for all municipalities`);
+            return;
+        }
+        
+        const municipality = allMunicipalities[index];
+        // Use our existing function to load the barangays
+        loadBarangaysForMunicipality(municipality.id);
+        
+        // Load the next municipality after a short delay to avoid overwhelming the server
+        setTimeout(() => {
+            loadMunicipalityBarangays(index + 1);
+        }, 500); // 500ms delay between requests
+    };
+    
+    // Start loading from the first municipality
+    loadMunicipalityBarangays(0);
 }
 
 /**
