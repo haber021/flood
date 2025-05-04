@@ -17,6 +17,8 @@ class Sensor(models.Model):
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
+    municipality = models.ForeignKey('Municipality', on_delete=models.CASCADE, related_name='sensors', null=True, blank=True)
+    barangay = models.ForeignKey('Barangay', on_delete=models.CASCADE, related_name='sensors', null=True, blank=True)
     
     def __str__(self):
         return f"{self.name} ({self.sensor_type})"

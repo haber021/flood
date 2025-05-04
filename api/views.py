@@ -277,7 +277,7 @@ def flood_prediction(request):
             # Get the municipality
             municipality = Municipality.objects.get(id=municipality_id)
             # Filter sensors by municipality
-            sensor_filters['sensor__municipality_id'] = municipality.id
+            sensor_filters['sensor__municipality'] = municipality
         except Municipality.DoesNotExist:
             pass
     
@@ -287,7 +287,7 @@ def flood_prediction(request):
             # Get the barangay
             barangay = Barangay.objects.get(id=barangay_id)
             # Filter sensors by barangay
-            sensor_filters['sensor__barangay_id'] = barangay.id
+            sensor_filters['sensor__barangay'] = barangay
         except Barangay.DoesNotExist:
             pass
     
