@@ -19,6 +19,13 @@ urlpatterns = [
     path('notifications/', views.notifications_page, name='notifications_page'),
     path('config/', views.config_page, name='config_page'),
     
+    # User Management URLs
+    path('profile/', views.profile, name='profile'),
+    path('profile/edit/', views.edit_profile, name='edit_profile'),
+    path('users/', views.user_management, name='user_management'),
+    path('users/<int:user_id>/', views.view_user, name='view_user'),
+    path('users/<int:user_id>/edit/', views.edit_user, name='edit_user'),
+    
     # API endpoints for frontend
     path('api/chart-data/', views.get_chart_data, name='get_chart_data'),
     path('api/map-data/', views.get_map_data, name='get_map_data'),
