@@ -132,6 +132,27 @@
                         </div>
                     </div>
                 </div>
+                <div class="card-header bg-light">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <label class="input-group-text" for="barangay-selector"><i class="fas fa-map-marker-alt"></i></label>
+                                <select class="form-select" id="barangay-selector">
+                                    <option value="">All Barangays/Locations</option>
+                                    <!-- Options will be populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-md-end mt-2 mt-md-0">
+                            <button class="btn btn-sm btn-outline-primary" id="reset-map-view">
+                                <i class="fas fa-sync-alt me-1"></i> Reset View
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="focus-selected-barangay" disabled>
+                                <i class="fas fa-search-location me-1"></i> Focus Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     <div id="flood-map" style="height: 500px;"></div>
                 </div>

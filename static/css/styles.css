@@ -117,6 +117,41 @@ body {
     border: none;
 }
 
+/* Pulsing circle effect for selected barangay */
+.pulsing-circle {
+    animation: circle-pulse 2s ease-out infinite;
+}
+
+@keyframes circle-pulse {
+    0% {
+        stroke-width: 2;
+        stroke-opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        stroke-width: 0;
+        stroke-opacity: 0;
+        transform: scale(1.5);
+    }
+}
+
+/* Pulse effect for sensor icons */
+.pulse-icon {
+    animation: icon-pulse 2s infinite;
+}
+
+@keyframes icon-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
 /* Prediction page styles */
 .prediction-gauge {
     position: relative;

@@ -20,6 +20,9 @@ let selectedBarangay = null;
 // Store all barangays data
 let allBarangays = [];
 
+// Map markers for barangays
+let barangayMarkers = {};
+
 // Map initialization
 document.addEventListener('DOMContentLoaded', function() {
     // Only initialize if the map container exists
@@ -44,6 +47,46 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load initial data
     loadMapData();
+    
+    // Setup event listeners for barangay selection
+    const barangaySelector = document.getElementById('barangay-selector');
+    if (barangaySelector) {
+        barangaySelector.addEventListener('change', function() {
+            const selectedId = this.value;
+            if (selectedId) {
+                // Find the selected barangay object
+                const barangay = allBarangays.find(b => b.id.toString() === selectedId);
+                if (barangay) {
+                    selectedBarangay = barangay;
+                    highlightSelectedBarangay(barangay);
+                    document.getElementById('focus-selected-barangay').disabled = false;
+                }
+            } else {
+                // Clear selection
+                selectedBarangay = null;
+                resetBarangayHighlights();
+                document.getElementById('focus-selected-barangay').disabled = true;
+            }
+        });
+    }
+    
+    // Reset map view button
+    const resetButton = document.getElementById('reset-map-view');
+    if (resetButton) {
+        resetButton.addEventListener('click', function() {
+            loadMapData(); // This will reset the view
+        });
+    }
+    
+    // Focus selected barangay button
+    const focusButton = document.getElementById('focus-selected-barangay');
+    if (focusButton) {
+        focusButton.addEventListener('click', function() {
+            if (selectedBarangay) {
+                focusOnBarangay(selectedBarangay);
+            }
+        });
+    }
     
     // Refresh map data every 3 minutes
     setInterval(loadMapData, 3 * 60 * 1000);
@@ -190,6 +233,12 @@ function processFloodRiskZones(zones) {
             console.error('Error processing zone GeoJSON:', e);
         }
     });
+    
+    // Handle barangay selection - show relevant risk zones
+    if (selectedBarangay) {
+        // In a production system, we would filter risk zones by barangay location here
+        // For now, we'll just focus the map on the selected barangay
+    }
 }
 
 /**
@@ -226,6 +275,10 @@ function processSensors(sensors) {
 function processBarangays(barangays) {
     // Clear previous layers
     barangaysLayer.clearLayers();
+    barangayMarkers = {};
+    
+    // Store all barangays for the selector
+    allBarangays = barangays;
     
     // Add each barangay to the map
     barangays.forEach(barangay => {
@@ -241,14 +294,25 @@ function processBarangays(barangays) {
         });
         
         // Add marker with popup
-        L.marker([barangay.lat, barangay.lng], { icon: icon })
+        const marker = L.marker([barangay.lat, barangay.lng], { icon: icon })
             .bindPopup(`
                 <strong>${barangay.name}</strong><br>
                 Population: ${barangay.population.toLocaleString()}<br>
                 Alert Level: ${getSeverityText(barangay.severity)}
             `)
             .addTo(barangaysLayer);
+            
+        // Store marker reference by barangay ID
+        barangayMarkers[barangay.id] = marker;
     });
+    
+    // Update the barangay selector
+    setupBarangaySelector();
+    
+    // If a barangay was previously selected, highlight it again
+    if (selectedBarangay) {
+        highlightSelectedBarangay(selectedBarangay);
+    }
 }
 
 /**
@@ -408,4 +472,106 @@ function darkenColor(hex, percent) {
     b = b.toString(16).padStart(2, '0');
     
     return `#${r}${g}${b}`;
+}
+
+/**
+ * Setup the barangay selector dropdown
+ */
+function setupBarangaySelector() {
+    const selector = document.getElementById('barangay-selector');
+    if (!selector) return;
+    
+    // Store current value if there is one
+    const currentValue = selector.value;
+    
+    // Clear existing options except the first one
+    while (selector.options.length > 1) {
+        selector.remove(1);
+    }
+    
+    // Sort barangays alphabetically by name
+    const sortedBarangays = [...allBarangays].sort((a, b) => {
+        return a.name.localeCompare(b.name);
+    });
+    
+    // Add options for each barangay
+    sortedBarangays.forEach(barangay => {
+        const option = document.createElement('option');
+        option.value = barangay.id;
+        option.textContent = barangay.name;
+        
+        // Add severity level indicator
+        if (barangay.severity > 1) {
+            const severityText = getSeverityText(barangay.severity);
+            option.textContent += ` (${severityText})`;
+            
+            // Add color coding to options based on severity
+            option.style.color = getSeverityColor(barangay.severity);
+            option.style.fontWeight = 'bold';
+        }
+        
+        selector.appendChild(option);
+    });
+    
+    // Restore previous selection if it exists
+    if (currentValue) {
+        selector.value = currentValue;
+    }
+}
+
+/**
+ * Highlight the selected barangay on the map
+ */
+function highlightSelectedBarangay(barangay) {
+    // Reset all markers first
+    resetBarangayHighlights();
+    
+    // Get the marker for the selected barangay
+    const marker = barangayMarkers[barangay.id];
+    if (marker) {
+        // Create a pulsing circle around the marker
+        const pulsingCircle = L.circle([barangay.lat, barangay.lng], {
+            color: '#FFC107',
+            fillColor: '#FFC107',
+            fillOpacity: 0.3,
+            radius: 300,
+            weight: 2,
+            className: 'pulsing-circle'
+        }).addTo(barangaysLayer);
+        
+        // Store the pulsing circle reference for later removal
+        marker._pulsingCircle = pulsingCircle;
+        
+        // Open the popup
+        marker.openPopup();
+        
+        // Focus the map on this barangay
+        focusOnBarangay(barangay);
+    }
+}
+
+/**
+ * Reset all barangay highlights
+ */
+function resetBarangayHighlights() {
+    // Remove all pulsing circles
+    for (const id in barangayMarkers) {
+        const marker = barangayMarkers[id];
+        if (marker && marker._pulsingCircle) {
+            barangaysLayer.removeLayer(marker._pulsingCircle);
+            marker._pulsingCircle = null;
+        }
+    }
+}
+
+/**
+ * Focus the map view on a specific barangay
+ */
+function focusOnBarangay(barangay) {
+    if (barangay && barangay.lat && barangay.lng) {
+        floodMap.setView([barangay.lat, barangay.lng], 14);
+        
+        // Switch to barangays view mode
+        setMapMode('barangays');
+    }
 }
