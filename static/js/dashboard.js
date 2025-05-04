@@ -436,8 +436,19 @@ function processAlertsData(data) {
                     console.log(`[Barangays] Fetching barangay data with URL: ${barangayUrl}`);
                     
                     // Fetch barangay details
-                    fetch(barangayUrl)
-                        .then(response => response.json())
+                    fetch(barangayUrl, {
+                        credentials: 'same-origin',  // Include cookies for authentication
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
                         .then(barangayData => {
                             if (barangayData.results && barangayData.results.length > 0) {
                                 const barangays = barangayData.results;
@@ -449,8 +460,8 @@ function processAlertsData(data) {
                                         const details = barangayDetails[barangay.id];
                                         
                                         barangayCardsHtml += `
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card">
+                                            <div class="col">
+                                                <div class="card h-100">
                                                     <div class="card-header ${details.alert_class} text-white">
                                                         <h5 class="mb-0">${barangay.name}</h5>
                                                     </div>
@@ -606,8 +617,19 @@ function updateAlertStatus(highestAlert) {
             alertCountUrl += `&barangay_id=${window.selectedBarangay.id}`;
         }
         
-        fetch(alertCountUrl)
-            .then(response => response.json())
+        fetch(alertCountUrl, {
+            credentials: 'same-origin',  // Include cookies for authentication
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 const count = data.count || 0;
                 alertsCount.textContent = `${count} active alert${count !== 1 ? 's' : ''}`;
