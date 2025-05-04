@@ -93,6 +93,23 @@ function initializeCharts() {
 }
 
 /**
+ * Update all charts at once
+ * Used when location or filters change
+ */
+function updateAllCharts() {
+    console.log('Updating all charts...');
+    // Reset zoom on all charts
+    resetZoom('temperature-chart');
+    resetZoom('rainfall-chart');
+    resetZoom('water-level-chart');
+    
+    // Reload data for all charts
+    loadChartData('temperature');
+    loadChartData('rainfall');
+    loadChartData('water_level');
+}
+
+/**
  * Create a new chart with the specified configuration
  */
 function createChart(canvasId, label, colors) {
