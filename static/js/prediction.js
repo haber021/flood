@@ -111,10 +111,21 @@ function initializeHistoricalChart() {
             maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: true,
+                    beginAtZero: false,
                     title: {
                         display: true,
                         text: 'Rainfall (mm)'
+                    },
+                    ticks: {
+                        padding: 10,
+                        font: {
+                            size: 11
+                        },
+                        precision: 1
+                    },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
                     }
                 },
                 x: {
@@ -213,8 +224,16 @@ function loadHistoricalData() {
     // Update chart title and axis label based on mode
     if (currentHistoricalMode === 'rainfall') {
         historicalChart.options.scales.y.title.text = 'Rainfall (mm)';
+        // Configure ideal y-axis for rainfall data
+        historicalChart.options.scales.y.beginAtZero = true;
+        // Allow more space above the maximum data point (rainfall can spike)
+        historicalChart.options.scales.y.suggestedMax = null;
     } else {
         historicalChart.options.scales.y.title.text = 'Water Level (m)';
+        // Configure ideal y-axis for water level data
+        historicalChart.options.scales.y.beginAtZero = false;
+        // Water levels need a narrower range for better visualization
+        historicalChart.options.scales.y.suggestedMax = null;
     }
     
     // Construct the URL with parameters
@@ -337,18 +356,43 @@ function addThresholdLine(value, label, color) {
     // Create array of same value for every label
     const thresholdData = historicalChart.data.labels.map(() => value);
     
-    // Add the threshold dataset
-    historicalChart.data.datasets.push({
-        label: label,
-        data: thresholdData,
-        borderColor: color,
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        borderDash: [5, 5],
-        pointRadius: 0,
-        pointHoverRadius: 0,
-        tension: 0
-    });
+    // Find if we already have a threshold line with this label
+    const existingIndex = historicalChart.data.datasets.findIndex(ds => ds.label === label);
+    
+    if (existingIndex > 0) {
+        // Update existing threshold dataset
+        historicalChart.data.datasets[existingIndex].data = thresholdData;
+    } else {
+        // Add the threshold dataset
+        historicalChart.data.datasets.push({
+            label: label,
+            data: thresholdData,
+            borderColor: color,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            tension: 0,
+            // Make threshold lines more obvious visually
+            order: 0 // Ensure it's drawn on top
+        });
+    }
+    
+    // Adjust chart scale to ensure threshold is visible
+    const minValue = Math.min(...historicalChart.data.datasets[0].data.filter(v => v !== null && v !== undefined));
+    const maxValue = Math.max(...historicalChart.data.datasets[0].data.filter(v => v !== null && v !== undefined));
+    const range = maxValue - minValue;
+    
+    // Only adjust if threshold value is outside current data range or very close to edges
+    if (value < minValue || value > maxValue || Math.abs(value - minValue) < range * 0.1 || Math.abs(value - maxValue) < range * 0.1) {
+        if (value < minValue) {
+            historicalChart.options.scales.y.min = value * 0.9; // Give some padding below
+        }
+        if (value > maxValue) {
+            historicalChart.options.scales.y.max = value * 1.1; // Give some padding above
+        }
+    }
     
     // Update the chart
     historicalChart.update();
