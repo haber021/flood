@@ -2,14 +2,18 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
-from django.db.models import Max
+from django.db.models import Max, Avg, Sum, Q, Count, Min
+import math
+from datetime import timedelta
+
 from core.models import (
     Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
-    FloodAlert, ThresholdSetting, NotificationLog
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
 )
 from .serializers import (
     SensorSerializer, SensorDataSerializer, MunicipalitySerializer, BarangaySerializer,
-    FloodRiskZoneSerializer, FloodAlertSerializer, ThresholdSettingSerializer
+    FloodRiskZoneSerializer, FloodAlertSerializer, ThresholdSettingSerializer, 
+    NotificationLogSerializer, EmergencyContactSerializer
 )
 
 class SensorViewSet(viewsets.ReadOnlyModelViewSet):
@@ -246,3 +250,207 @@ class ThresholdSettingViewSet(viewsets.ModelViewSet):
     
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def flood_prediction(request):
+    """API endpoint for flood prediction based on real-time sensor data"""
+    
+    # Get recent rainfall data
+    end_date = timezone.now()
+    start_date_24h = end_date - timedelta(hours=24)
+    start_date_72h = end_date - timedelta(hours=72)
+    
+    # Get rainfall data for the past 24 and 72 hours
+    rainfall_24h = SensorData.objects.filter(
+        sensor__sensor_type='rainfall',
+        timestamp__gte=start_date_24h,
+        timestamp__lte=end_date
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
+    rainfall_72h = SensorData.objects.filter(
+        sensor__sensor_type='rainfall',
+        timestamp__gte=start_date_72h,
+        timestamp__lte=end_date
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
+    # Get water level data
+    water_level = SensorData.objects.filter(
+        sensor__sensor_type='water_level',
+        timestamp__gte=start_date_24h
+    ).aggregate(current=Max('value'), avg=Avg('value'))
+    
+    # Get soil saturation (using humidity as a proxy in our system)
+    humidity = SensorData.objects.filter(
+        sensor__sensor_type='humidity',
+        timestamp__gte=start_date_24h
+    ).aggregate(current=Max('value'), avg=Avg('value'))
+    
+    # Calculate flood probability based on real data
+    # This is a simplified model - a real system would use more complex ML/AI
+    probability = 0
+    
+    # Factor 1: Recent heavy rainfall (24-hour)
+    if rainfall_24h['total']:
+        if rainfall_24h['total'] > 50:  # More than 50mm in 24 hours is significant
+            probability += 30
+        elif rainfall_24h['total'] > 25:
+            probability += 20
+        elif rainfall_24h['total'] > 10:
+            probability += 10
+    
+    # Factor 2: Sustained rainfall (72-hour)
+    if rainfall_72h['total']:
+        if rainfall_72h['total'] > 100:  # More than 100mm in 72 hours
+            probability += 25
+        elif rainfall_72h['total'] > 50:
+            probability += 15
+        elif rainfall_72h['total'] > 25:
+            probability += 5
+    
+    # Factor 3: Current water level
+    if water_level['current']:
+        if water_level['current'] > 1.5:  # Above 1.5m is high
+            probability += 30
+        elif water_level['current'] > 1.0:
+            probability += 20
+        elif water_level['current'] > 0.5:
+            probability += 10
+    
+    # Factor 4: Soil saturation (using humidity as a proxy)
+    if humidity['current']:
+        if humidity['current'] > 90:  # Very humid/saturated soil
+            probability += 15
+        elif humidity['current'] > 80:
+            probability += 10
+        elif humidity['current'] > 70:
+            probability += 5
+    
+    # Cap the probability
+    probability = min(probability, 100)
+    
+    # Based on probability, calculate ETA
+    hours_to_flood = None
+    if probability >= 60:
+        # Estimate hours to flood based on current water level and rainfall rate
+        if water_level['current'] and rainfall_24h['avg']:
+            # Simple formula: time to flood decreases with higher water level and rainfall rate
+            current_level = water_level['current']
+            target_level = 1.8  # assumed flood level
+            level_difference = max(0, target_level - current_level)
+            
+            rainfall_rate = rainfall_24h['avg'] / 24  # mm per hour
+            if rainfall_rate > 0:
+                # Simplified conversion from rainfall to water level rise
+                # This would be more complex in a real model
+                estimated_rise_rate = rainfall_rate * 0.02  # 1mm rain -> 0.02m water rise
+                
+                if estimated_rise_rate > 0:
+                    hours_to_flood = level_difference / estimated_rise_rate
+                    hours_to_flood = max(1, min(48, hours_to_flood))  # Cap between 1-48 hours
+    
+    # Determine contributing factors based on real data
+    factors = []
+    
+    if rainfall_24h['total'] and rainfall_24h['total'] > 10:
+        factors.append(f"Rainfall in the past 24 hours: {rainfall_24h['total']:.1f}mm")
+        
+    if rainfall_72h['total'] and rainfall_72h['total'] > 30:
+        factors.append(f"Sustained rainfall over 72 hours: {rainfall_72h['total']:.1f}mm")
+        
+    if water_level['current'] and water_level['current'] > 0.8:
+        factors.append(f"Elevated water level: {water_level['current']:.2f}m")
+        
+    if humidity['current'] and humidity['current'] > 70:
+        factors.append(f"High soil moisture/humidity: {humidity['current']:.0f}%")
+    
+    if rainfall_24h['max'] and rainfall_24h['max'] > 5:
+        factors.append(f"Heavy rainfall intensity: {rainfall_24h['max']:.1f}mm")
+        
+    # If we don't have enough factors, add a default
+    if len(factors) < 2:
+        if probability < 30:
+            factors.append("No significant contributing factors identified")
+        else:
+            factors.append("Limited sensor data available for analysis")
+    
+    # Calculate flood impact based on probability
+    impact = ""
+    if probability >= 75:
+        impact = "Severe flooding likely with significant impact to infrastructure and possible evacuation requirements."
+    elif probability >= 50:
+        impact = "Moderate flooding expected in low-lying areas with potential minor property damage."
+    else:
+        impact = "Minor flooding possible in flood-prone areas, general population unlikely to be affected."
+    
+    # Find potentially affected barangays (in a real system, this would use geospatial analysis)
+    affected_barangays = []
+    if probability >= 30:
+        # In a real system, we would use more sophisticated logic to determine affected areas
+        # For now, we'll query barangays based on predicted severity level
+        severity_level = 1  # Default to Advisory
+        if probability >= 75:
+            severity_level = 4  # Emergency
+        elif probability >= 60:
+            severity_level = 3  # Warning
+        elif probability >= 40:
+            severity_level = 2  # Watch
+            
+        # Get barangays with recent alerts of this severity or higher
+        recent_alerts = FloodAlert.objects.filter(
+            severity_level__gte=severity_level,
+            issued_at__gte=start_date_72h
+        )
+        
+        if recent_alerts.exists():
+            # Use barangays from similar past alerts
+            barangay_ids = set()
+            for alert in recent_alerts:
+                barangay_ids.update(alert.affected_barangays.values_list('id', flat=True))
+                
+            barangays = Barangay.objects.filter(id__in=barangay_ids)
+        else:
+            # Fallback to barangays near water sensors with high readings
+            if water_level['current'] and water_level['current'] > 0.5:
+                # Get sensors with high water level readings
+                high_water_sensors = SensorData.objects.filter(
+                    sensor__sensor_type='water_level',
+                    value__gte=0.5,
+                    timestamp__gte=start_date_24h
+                ).values_list('sensor_id', flat=True).distinct()
+                
+                # Get random barangays
+                # In a real system, we would have sensor-barangay relationships
+                barangays = Barangay.objects.all()[:5]
+            else:
+                # Get random barangays if we can't determine from sensors
+                barangays = Barangay.objects.all()[:3]
+        
+        # Format barangay data for response
+        for barangay in barangays:
+            risk_level = "High" if probability >= 70 else ("Moderate" if probability >= 40 else "Low")
+            evacuation_centers = 3 if risk_level == "High" else (2 if risk_level == "Moderate" else 1)
+            
+            affected_barangays.append({
+                "id": barangay.id,
+                "name": barangay.name,
+                "municipality": barangay.municipality.name,
+                "population": barangay.population,
+                "risk_level": risk_level,
+                "evacuation_centers": evacuation_centers
+            })
+    
+    # Prepare and return the prediction response
+    prediction_data = {
+        "probability": probability,
+        "impact": impact,
+        "hours_to_flood": hours_to_flood,
+        "flood_time": timezone.now() + timedelta(hours=hours_to_flood) if hours_to_flood else None,
+        "contributing_factors": factors,
+        "affected_barangays": affected_barangays,
+        "last_updated": timezone.now().isoformat(),
+        "rainfall_24h": rainfall_24h,
+        "water_level": water_level['current'] if water_level['current'] else 0
+    }
+    
+    return Response(prediction_data)
