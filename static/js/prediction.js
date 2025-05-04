@@ -296,8 +296,29 @@ function updatePredictionModel() {
     const gaugeCircle = document.querySelector('.gauge-circle');
     gaugeCircle.style.background = 'conic-gradient(#6c757d 0% 100%)';
     
+    // Get location filters if available
+    let url = '/api/prediction/';
+    const params = [];
+    
+    // Add municipality filter if selected
+    if (window.selectedMunicipality) {
+        params.push(`municipality_id=${window.selectedMunicipality.id}`);
+    }
+    
+    // Add barangay filter if selected
+    if (window.selectedBarangay) {
+        params.push(`barangay_id=${window.selectedBarangay.id}`);
+    }
+    
+    // Add parameters to URL if any
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+    
+    console.log('Fetching prediction data from:', url);
+    
     // Call the real-time prediction API
-    fetch('/api/prediction/')
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);

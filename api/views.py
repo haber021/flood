@@ -256,22 +256,58 @@ class ThresholdSettingViewSet(viewsets.ModelViewSet):
 def flood_prediction(request):
     """API endpoint for flood prediction based on real-time sensor data"""
     
+    # Get location filters from request parameters
+    municipality_id = request.GET.get('municipality_id', None)
+    barangay_id = request.GET.get('barangay_id', None)
+    
+    # Query filters to apply to sensor data
+    sensor_filters = {}
+    
+    # Apply location filters if provided
+    if municipality_id:
+        try:
+            # Get the municipality
+            municipality = Municipality.objects.get(id=municipality_id)
+            # Filter sensors by municipality
+            sensor_filters['sensor__municipality'] = municipality
+        except Municipality.DoesNotExist:
+            pass
+    
+    if barangay_id:
+        try:
+            # Get the barangay
+            barangay = Barangay.objects.get(id=barangay_id)
+            # Filter sensors by barangay
+            sensor_filters['sensor__barangay'] = barangay
+        except Barangay.DoesNotExist:
+            pass
+    
     # Get recent rainfall data
     end_date = timezone.now()
     start_date_24h = end_date - timedelta(hours=24)
     start_date_72h = end_date - timedelta(hours=72)
     
     # Get rainfall data for the past 24 and 72 hours
+    rainfall_filters_24h = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_24h,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_24h.update(sensor_filters)  # Add location filters
+    
     rainfall_24h = SensorData.objects.filter(
-        sensor__sensor_type='rainfall',
-        timestamp__gte=start_date_24h,
-        timestamp__lte=end_date
+        **rainfall_filters_24h
     ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
     
+    rainfall_filters_72h = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_72h,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_72h.update(sensor_filters)  # Add location filters
+    
     rainfall_72h = SensorData.objects.filter(
-        sensor__sensor_type='rainfall',
-        timestamp__gte=start_date_72h,
-        timestamp__lte=end_date
+        **rainfall_filters_72h
     ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
     
     # Get water level data
