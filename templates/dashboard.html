@@ -207,24 +207,39 @@
                     </ul>
                     <div class="tab-content mt-3" id="chartTabsContent">
                         <div class="tab-pane fade show active" id="temperature-chart-panel" role="tabpanel">
-                            <canvas id="temperature-chart" height="300"></canvas>
-                            <div class="d-flex justify-content-end mt-2">
+                            <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                                <canvas id="temperature-chart"></canvas>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <button class="btn btn-sm btn-outline-primary reset-zoom" data-chart="temperature-chart">
+                                    <i class="fas fa-search-minus me-1"></i> Reset Zoom
+                                </button>
                                 <button class="btn btn-sm btn-outline-secondary export-chart" data-chart="temperature-chart">
                                     <i class="fas fa-download me-1"></i> Export
                                 </button>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="rainfall-chart-panel" role="tabpanel">
-                            <canvas id="rainfall-chart" height="300"></canvas>
-                            <div class="d-flex justify-content-end mt-2">
+                            <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                                <canvas id="rainfall-chart"></canvas>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <button class="btn btn-sm btn-outline-primary reset-zoom" data-chart="rainfall-chart">
+                                    <i class="fas fa-search-minus me-1"></i> Reset Zoom
+                                </button>
                                 <button class="btn btn-sm btn-outline-secondary export-chart" data-chart="rainfall-chart">
                                     <i class="fas fa-download me-1"></i> Export
                                 </button>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="water-level-chart-panel" role="tabpanel">
-                            <canvas id="water-level-chart" height="300"></canvas>
-                            <div class="d-flex justify-content-end mt-2">
+                            <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                                <canvas id="water-level-chart"></canvas>
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <button class="btn btn-sm btn-outline-primary reset-zoom" data-chart="water-level-chart">
+                                    <i class="fas fa-search-minus me-1"></i> Reset Zoom
+                                </button>
                                 <button class="btn btn-sm btn-outline-secondary export-chart" data-chart="water-level-chart">
                                     <i class="fas fa-download me-1"></i> Export
                                 </button>

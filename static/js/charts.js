@@ -48,12 +48,27 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
+        // Setup reset zoom buttons
+        document.querySelectorAll('.reset-zoom').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const chartId = this.getAttribute('data-chart');
+                resetZoom(chartId);
+            });
+        });
+        
         // Setup export buttons
         document.querySelectorAll('.export-chart').forEach(btn => {
             btn.addEventListener('click', function() {
                 const chartId = this.getAttribute('data-chart');
                 exportChart(chartId);
             });
+        });
+        
+        // Set up window resize handler to adjust charts
+        window.addEventListener('resize', function() {
+            if (temperatureChart) temperatureChart.resize();
+            if (rainfallChart) rainfallChart.resize();
+            if (waterLevelChart) waterLevelChart.resize();
         });
     }
 });
@@ -302,7 +317,7 @@ function addHistoricalComparison(chart, historicalData, label) {
 /**
  * Reset chart zoom level
  */
-function resetChartZoom(chartId) {
+function resetZoom(chartId) {
     let chart;
     
     switch (chartId) {
@@ -321,5 +336,11 @@ function resetChartZoom(chartId) {
     
     if (chart && chart.resetZoom) {
         chart.resetZoom();
+    } else if (chart) {
+        // For Chart.js v3+ with zoom plugin
+        const zoomPlugin = Chart.getPlugin('zoom');
+        if (zoomPlugin) {
+            zoomPlugin.resetZoom(chart);
+        }
     }
 }
