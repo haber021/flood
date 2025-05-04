@@ -281,115 +281,140 @@ function addThresholdLine(value, label, color) {
  * Update the prediction model visualization
  */
 function updatePredictionModel() {
-    // In a real app, this would call an AI/ML model API
-    // For demo purposes, we'll generate a probability
+    // Show loading state
+    document.getElementById('prediction-status').textContent = 'Loading prediction model...';
+    document.getElementById('flood-probability').textContent = '--';
+    document.getElementById('prediction-impact').textContent = 'Analyzing sensor data...';
+    document.getElementById('prediction-eta').textContent = 'Calculating...';
+    document.getElementById('contributing-factors').innerHTML = '<li>Loading factors...</li>';
     
-    // Generate random probability between 30-90%
-    const probability = Math.floor(Math.random() * 60) + 30;
-    
-    // Update the gauge
-    document.getElementById('flood-probability').textContent = probability + '%';
-    
-    // Change color based on probability
+    // Change gauge to loading state
     const gaugeCircle = document.querySelector('.gauge-circle');
-    if (probability >= 75) {
-        gaugeCircle.style.background = 'conic-gradient(#dc3545 0% 100%)';
-    } else if (probability >= 50) {
-        gaugeCircle.style.background = 'conic-gradient(#ffc107 0% 100%)';
-    } else {
-        gaugeCircle.style.background = 'conic-gradient(#0dcaf0 0% 100%)';
-    }
+    gaugeCircle.style.background = 'conic-gradient(#6c757d 0% 100%)';
     
-    // Update predicted impact
-    let impactText;
-    if (probability >= 75) {
-        impactText = 'Severe flooding likely with significant impact to infrastructure and possible evacuation requirements.';
-    } else if (probability >= 50) {
-        impactText = 'Moderate flooding expected in low-lying areas with potential minor property damage.';
-    } else {
-        impactText = 'Minor flooding possible in flood-prone areas, general population unlikely to be affected.';
-    }
-    document.getElementById('prediction-impact').textContent = impactText;
-    
-    // Update ETA
-    // Generate a random time between 6-48 hours from now
-    const hoursToFlood = Math.floor(Math.random() * 42) + 6;
-    const floodDate = new Date();
-    floodDate.setHours(floodDate.getHours() + hoursToFlood);
-    
-    let etaText;
-    if (probability >= 60) {
-        etaText = `Estimated flood arrival: ${floodDate.toLocaleString()} (approximately ${hoursToFlood} hours from now)`;
-    } else {
-        etaText = 'No immediate flood threat expected in the next 24 hours.';
-    }
-    document.getElementById('prediction-eta').textContent = etaText;
-    
-    // Update contributing factors
-    const factorsElement = document.getElementById('contributing-factors');
-    const factorsList = [];
-    
-    if (Math.random() > 0.5) factorsList.push('Sustained heavy rainfall over the past 24 hours');
-    if (Math.random() > 0.5) factorsList.push('Soil saturation from previous precipitation');
-    if (Math.random() > 0.4) factorsList.push('Elevated water levels in nearby water bodies');
-    if (Math.random() > 0.7) factorsList.push('Forecast for continued precipitation');
-    if (Math.random() > 0.6) factorsList.push('Upstream dam water releases');
-    if (factorsList.length === 0) factorsList.push('No significant contributing factors identified');
-    
-    factorsElement.innerHTML = factorsList.map(factor => `<li>${factor}</li>`).join('');
-    
-    // Update the last prediction time
-    document.getElementById('last-prediction-time').textContent = new Date().toLocaleString();
+    // Call the real-time prediction API
+    fetch('/api/prediction/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Prediction data:', data);
+            
+            // Extract probability
+            const probability = data.probability;
+            
+            // Update the gauge
+            document.getElementById('flood-probability').textContent = probability + '%';
+            
+            // Change color based on probability
+            if (probability >= 75) {
+                gaugeCircle.style.background = 'conic-gradient(#dc3545 0% 100%)';
+            } else if (probability >= 50) {
+                gaugeCircle.style.background = 'conic-gradient(#ffc107 0% 100%)';
+            } else {
+                gaugeCircle.style.background = 'conic-gradient(#0dcaf0 0% 100%)';
+            }
+            
+            // Update predicted impact
+            document.getElementById('prediction-impact').textContent = data.impact;
+            
+            // Update ETA
+            let etaText;
+            if (data.hours_to_flood && data.flood_time) {
+                const floodDate = new Date(data.flood_time);
+                etaText = `Estimated flood arrival: ${floodDate.toLocaleString()} (approximately ${Math.round(data.hours_to_flood)} hours from now)`;
+            } else {
+                etaText = 'No immediate flood threat expected in the next 24 hours.';
+            }
+            document.getElementById('prediction-eta').textContent = etaText;
+            
+            // Update contributing factors
+            const factorsElement = document.getElementById('contributing-factors');
+            if (data.contributing_factors && data.contributing_factors.length > 0) {
+                factorsElement.innerHTML = data.contributing_factors.map(factor => `<li>${factor}</li>`).join('');
+            } else {
+                factorsElement.innerHTML = '<li>No significant contributing factors identified</li>';
+            }
+            
+            // Update potentially affected barangays
+            updateAffectedBarangays(data.affected_barangays || []);
+            
+            // Update additional data
+            const statusElement = document.getElementById('prediction-status');
+            statusElement.textContent = 'Prediction complete';
+            statusElement.classList.remove('text-warning');
+            statusElement.classList.add('text-success');
+            
+            // Update the last prediction time
+            document.getElementById('last-prediction-time').textContent = new Date(data.last_updated).toLocaleString();
+            
+            // Update rainfall and water level indicators if available
+            if (data.rainfall_24h && data.rainfall_24h.total !== null) {
+                const rainfallElement = document.getElementById('rainfall-24h');
+                if (rainfallElement) {
+                    rainfallElement.textContent = `${data.rainfall_24h.total.toFixed(1)}mm`;
+                }
+            }
+            
+            if (data.water_level !== null) {
+                const waterLevelElement = document.getElementById('current-water-level');
+                if (waterLevelElement) {
+                    waterLevelElement.textContent = `${data.water_level.toFixed(2)}m`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating prediction model:', error);
+            document.getElementById('prediction-status').textContent = 'Error loading prediction';
+            document.getElementById('prediction-status').classList.remove('text-warning');
+            document.getElementById('prediction-status').classList.add('text-danger');
+            document.getElementById('flood-probability').textContent = 'N/A';
+            document.getElementById('prediction-impact').textContent = 'Unable to generate prediction. Please try again later.';
+            document.getElementById('prediction-eta').textContent = 'Data unavailable';
+            document.getElementById('contributing-factors').innerHTML = '<li>Error retrieving data</li>';
+        });
 }
 
 /**
  * Load potentially affected barangays
  */
 function loadPotentiallyAffectedBarangays() {
-    // In a real app, this would fetch from an API based on the prediction model
-    // For demo purposes, we'll use sample data
+    // Now just calls updatePredictionModel which will handle everything
+    updatePredictionModel();
+}
+
+/**
+ * Update the affected barangays table with real data
+ */
+function updateAffectedBarangays(barangays) {
+    if (!barangays || barangays.length === 0) {
+        document.getElementById('affected-barangays').innerHTML = 
+            '<tr><td colspan="4" class="text-center">No potentially affected barangays identified.</td></tr>';
+        return;
+    }
     
-    fetch('/api/barangays/')
-        .then(response => response.json())
-        .then(data => {
-            if (!data.results || data.results.length === 0) {
-                document.getElementById('affected-barangays').innerHTML = 
-                    '<tr><td colspan="4" class="text-center">No barangay data available.</td></tr>';
-                return;
-            }
-            
-            // Take a subset of barangays and mark them as potentially affected
-            const barangays = data.results.slice(0, 5); // Limit to 5 for demo
-            
-            // Generate sample risk levels
-            const riskLevels = ['High', 'Moderate', 'Moderate', 'Low', 'Low'];
-            const evacuationCenters = [3, 2, 2, 1, 1]; // Sample number of evacuation centers
-            
-            // Build the table rows
-            let barangayRows = '';
-            
-            barangays.forEach((barangay, index) => {
-                const riskClass = riskLevels[index] === 'High' ? 'text-danger' : 
-                    (riskLevels[index] === 'Moderate' ? 'text-warning' : 'text-success');
-                
-                barangayRows += `
-                    <tr>
-                        <td><a href="/barangays/${barangay.id}/" class="text-decoration-none">${barangay.name}</a></td>
-                        <td class="text-center">${barangay.population.toLocaleString()}</td>
-                        <td class="text-center"><span class="${riskClass} fw-bold">${riskLevels[index]}</span></td>
-                        <td class="text-center">${evacuationCenters[index]}</td>
-                    </tr>
-                `;
-            });
-            
-            // Update the table
-            document.getElementById('affected-barangays').innerHTML = barangayRows;
-        })
-        .catch(error => {
-            console.error('Error loading barangay data:', error);
-            document.getElementById('affected-barangays').innerHTML = 
-                '<tr><td colspan="4" class="text-center text-danger">Error loading barangay data.</td></tr>';
-        });
+    // Build the table rows
+    let barangayRows = '';
+    
+    barangays.forEach((barangay) => {
+        const riskClass = barangay.risk_level === 'High' ? 'text-danger' : 
+            (barangay.risk_level === 'Moderate' ? 'text-warning' : 'text-success');
+        
+        barangayRows += `
+            <tr>
+                <td><a href="/barangays/${barangay.id}/" class="text-decoration-none">${barangay.name}</a></td>
+                <td class="text-center">${barangay.population.toLocaleString()}</td>
+                <td class="text-center"><span class="${riskClass} fw-bold">${barangay.risk_level}</span></td>
+                <td class="text-center">${barangay.evacuation_centers}</td>
+            </tr>
+        `;
+    });
+    
+    // Update the table
+    document.getElementById('affected-barangays').innerHTML = barangayRows;
 }
 
 /**

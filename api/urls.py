@@ -14,4 +14,5 @@ router.register(r'threshold-settings', views.ThresholdSettingViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('add-sensor-data/', views.add_sensor_data, name='add_sensor_data'),
+    path('prediction/', views.flood_prediction, name='flood_prediction'),
 ]
