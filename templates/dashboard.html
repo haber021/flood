@@ -135,12 +135,25 @@
                 <div class="card-header bg-light">
                     <div class="row align-items-center">
                         <div class="col-md-6">
-                            <div class="input-group">
-                                <label class="input-group-text" for="barangay-selector"><i class="fas fa-map-marker-alt"></i></label>
-                                <select class="form-select" id="barangay-selector">
-                                    <option value="">All Barangays/Locations</option>
-                                    <!-- Options will be populated dynamically -->
-                                </select>
+                            <div class="row">
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <div class="input-group">
+                                        <label class="input-group-text" for="municipality-selector"><i class="fas fa-city"></i></label>
+                                        <select class="form-select" id="municipality-selector">
+                                            <option value="">All Municipalities</option>
+                                            <!-- Municipality options will be populated dynamically -->
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group">
+                                        <label class="input-group-text" for="barangay-selector"><i class="fas fa-map-marker-alt"></i></label>
+                                        <select class="form-select" id="barangay-selector">
+                                            <option value="">All Barangays</option>
+                                            <!-- Barangay options will be populated dynamically -->
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6 text-md-end mt-2 mt-md-0">
