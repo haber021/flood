@@ -392,21 +392,58 @@ function processBarangays(barangays) {
         // Determine color based on severity
         const color = getSeverityColor(barangay.severity);
         
-        // Create custom icon
+        // Create custom icon with size based on population (scaled for visibility)
+        const popScale = Math.min(Math.max(barangay.population / 1000, 1), 5); // Scale between 1-5 based on population
+        const size = Math.floor(18 + (popScale * 4)); // Size between 20-38px
+        
+        // Create custom icon with population-scaled size
         const icon = L.divIcon({
             className: 'custom-div-icon',
-            html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+            html: `<div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: 2px solid white; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 8px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [size, size],
+            iconAnchor: [size/2, size/2]
         });
+        
+        // Create detailed popup content
+        const popupContent = `
+            <div class="barangay-popup">
+                <h5>${barangay.name}</h5>
+                <div class="popup-details">
+                    <table class="table table-sm popup-table">
+                        <tr>
+                            <th>Municipality:</th>
+                            <td>${barangay.municipality_name}</td>
+                        </tr>
+                        <tr>
+                            <th>Population:</th>
+                            <td>${barangay.population.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                            <th>Alert Level:</th>
+                            <td>
+                                <span class="badge" style="background-color: ${color}">
+                                    ${getSeverityText(barangay.severity)}
+                                </span>
+                            </td>
+                        </tr>
+                        ${barangay.contact_person ? `
+                        <tr>
+                            <th>Contact:</th>
+                            <td>${barangay.contact_person}</td>
+                        </tr>` : ''}
+                        ${barangay.contact_number ? `
+                        <tr>
+                            <th>Phone:</th>
+                            <td>${barangay.contact_number}</td>
+                        </tr>` : ''}
+                    </table>
+                </div>
+            </div>
+        `;
         
         // Add marker with popup
         const marker = L.marker([barangay.lat, barangay.lng], { icon: icon })
-            .bindPopup(`
-                <strong>${barangay.name}</strong><br>
-                Population: ${barangay.population.toLocaleString()}<br>
-                Alert Level: ${getSeverityText(barangay.severity)}
-            `)
+            .bindPopup(popupContent, {maxWidth: 300})
             .addTo(barangaysLayer);
             
         // Store marker reference by barangay ID
@@ -419,6 +456,12 @@ function processBarangays(barangays) {
     // If a barangay was previously selected, highlight it again
     if (selectedBarangay) {
         highlightSelectedBarangay(selectedBarangay);
+    }
+    
+    // Update the barangay count in the UI
+    const barangayCountElement = document.getElementById('barangay-count');
+    if (barangayCountElement) {
+        barangayCountElement.textContent = barangays.length;
     }
 }
 
@@ -569,18 +612,71 @@ function displayMunicipalityBarangays() {
     // Create cards for each barangay
     let cardsHtml = '';
     
+    // Calculate total population for this municipality
+    const totalPopulation = sortedBarangays.reduce((sum, b) => sum + b.population, 0);
+    
+    // Add municipality summary card
+    if (window.selectedMunicipality && sortedBarangays.length > 0) {
+        cardsHtml += `
+            <div class="col-12 mb-3">
+                <div class="card bg-light">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0">${window.selectedMunicipality.name}</h5>
+                                <p class="mb-0">Total: ${sortedBarangays.length} Barangays</p>
+                            </div>
+                            <div class="text-end">
+                                <h5 class="mb-0">${totalPopulation.toLocaleString()}</h5>
+                                <p class="mb-0">Population</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
     sortedBarangays.forEach(barangay => {
+        // Calculate percentage of municipality population
+        const populationPercentage = (barangay.population / totalPopulation * 100).toFixed(1);
+        
+        // Determine severity class for card border/header
+        let severityClass = 'primary';
+        if (barangay.severity >= 4) severityClass = 'danger';
+        else if (barangay.severity == 3) severityClass = 'warning';
+        else if (barangay.severity == 2) severityClass = 'info';
+        else if (barangay.severity == 1) severityClass = 'success';
+        
         cardsHtml += `
             <div class="col-md-4 col-lg-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-header bg-light">
+                <div class="card h-100 ${barangay.severity > 0 ? 'border-' + severityClass : ''}">
+                    <div class="card-header ${barangay.severity > 0 ? 'bg-' + severityClass + ' text-white' : 'bg-light'}">
                         <h6 class="mb-0">${barangay.name}</h6>
                     </div>
                     <div class="card-body">
-                        <p><strong>Population:</strong> ${barangay.population.toLocaleString()}</p>
-                        <p><strong>Area:</strong> ${barangay.area_sqkm} km²</p>
-                        ${barangay.contact_person ? `<p><strong>Contact:</strong> ${barangay.contact_person}</p>` : ''}
-                        ${barangay.contact_number ? `<p><strong>Phone:</strong> ${barangay.contact_number}</p>` : ''}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Population:</strong>
+                            <span class="badge bg-secondary">${barangay.population.toLocaleString()} (${populationPercentage}%)</span>
+                        </div>
+                        
+                        ${barangay.severity > 0 ? `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Alert Level:</strong>
+                            <span class="badge bg-${severityClass}">${getSeverityText(barangay.severity)}</span>
+                        </div>` : ''}
+                        
+                        ${barangay.contact_person ? `
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Contact:</strong>
+                            <span>${barangay.contact_person}</span>
+                        </div>` : ''}
+                        
+                        ${barangay.contact_number ? `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>Phone:</strong>
+                            <span>${barangay.contact_number}</span>
+                        </div>` : ''}
                     </div>
                     <div class="card-footer">
                         <button class="btn btn-sm btn-primary w-100" onclick="highlightBarangay(${parseInt(barangay.id)})">

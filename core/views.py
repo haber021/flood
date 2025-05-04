@@ -281,8 +281,9 @@ def get_chart_data(request):
 @login_required
 def get_map_data(request):
     """API endpoint to get map data"""
-    # Optional barangay_id filter
+    # Optional filters
     barangay_id = request.GET.get('barangay_id', None)
+    municipality_id = request.GET.get('municipality_id', None)
     
     # Get sensors for map
     sensors = Sensor.objects.filter(active=True)
@@ -314,12 +315,15 @@ def get_map_data(request):
             'geojson': zone.geojson,
         })
     
-    # Get all barangays for the selector, even if not affected by alerts
-    all_barangays = Barangay.objects.all()
-    barangay_data = []
+    # Get all barangays, filter by municipality if provided
+    barangay_queryset = Barangay.objects.all()
+    if municipality_id:
+        barangay_queryset = barangay_queryset.filter(municipality_id=municipality_id)
     
     # First, get all active alerts
     active_alerts = FloodAlert.objects.filter(active=True)
+    if municipality_id:
+        active_alerts = active_alerts.filter(affected_barangays__municipality_id=municipality_id).distinct()
     
     # Get affected barangays with their severities
     alert_severity_by_barangay = {}
@@ -330,14 +334,20 @@ def get_map_data(request):
             alert_severity_by_barangay[barangay.id] = max(current_severity, alert.severity_level)
     
     # Build barangay data including all barangays
-    for barangay in all_barangays:
+    barangay_data = []
+    for barangay in barangay_queryset:
         # Use the highest severity from alerts, or 0 if not affected
         severity = alert_severity_by_barangay.get(barangay.id, 0)
+        
+        # Include municipality information
+        municipality_name = barangay.municipality.name if barangay.municipality else "-"
         
         barangay_data.append({
             'id': barangay.id,
             'name': barangay.name,
             'population': barangay.population,
+            'municipality_id': barangay.municipality_id,
+            'municipality_name': municipality_name,
             'lat': barangay.latitude,
             'lng': barangay.longitude,
             'severity': severity,
@@ -346,7 +356,7 @@ def get_map_data(request):
             'contact_number': barangay.contact_number
         })
     
-    # If barangay_id is provided, filter data to focus on that barangay
+    # If barangay_id is provided, focus on that barangay
     if barangay_id:
         try:
             # Convert to integer
