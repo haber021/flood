@@ -3,7 +3,7 @@
  * Handles map visualization, risk zones, sensors, and affected barangays
  */
 
-// Global map variable
+// Global map variables
 let floodMap;
 
 // Layer groups
@@ -13,6 +13,12 @@ let barangaysLayer;
 
 // Active view mode
 let activeMapMode = 'risk-zones';
+
+// Selected barangay
+let selectedBarangay = null;
+
+// Store all barangays data
+let allBarangays = [];
 
 // Map initialization
 document.addEventListener('DOMContentLoaded', function() {
