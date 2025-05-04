@@ -173,11 +173,12 @@ function createChart(canvasId, label, colors) {
                 label: label,
                 data: [],
                 borderColor: colors.borderColor,
-                backgroundColor: colors.backgroundColor,
+                backgroundColor: 'transparent',
                 borderWidth: isMobile ? 1.5 : 2,
                 tension: 0.2,
                 pointRadius: isMobile ? 2 : 3,
-                pointHoverRadius: isMobile ? 4 : 5
+                pointHoverRadius: isMobile ? 4 : 5,
+                fill: false
             }]
         },
         options: {

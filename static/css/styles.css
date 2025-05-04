@@ -336,9 +336,8 @@ body {
 .responsive-chart {
     position: relative;
     width: 100%;
-    height: 0;
-    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-    min-height: 250px;
+    height: 300px; /* Fixed height for better consistency */
+    margin-bottom: 15px;
 }
 
 /* Dashboard wide screen optimizations */
@@ -402,15 +401,13 @@ body {
     left: 0;
     width: 100% !important;
     height: 100% !important;
-    max-height: 800px; /* Increased max height */
 }
 
 /* Chart responsiveness at different breakpoints */
 /* For wider screens */
 @media (min-width: 1400px) {
     .responsive-chart {
-        padding-bottom: 36%; /* Flatter aspect ratio for wide screens */
-        min-height: 300px;
+        height: 350px;
     }
     
     /* Make charts container take more space on wide screens */
@@ -422,8 +419,7 @@ body {
 
 @media (min-width: 1800px) {
     .responsive-chart {
-        padding-bottom: 30%; /* Even flatter for extra wide screens */
-        min-height: 380px;
+        height: 380px;
     }
     
     /* Make charts container even larger on super wide screens */
@@ -436,30 +432,26 @@ body {
 /* For ultra-wide screens */
 @media (min-width: 2200px) {
     .responsive-chart {
-        padding-bottom: 25%; /* Ultra-flat for ultra-wide screens */
-        min-height: 450px;
+        height: 400px;
     }
 }
 
 /* For smaller screens */
 @media (max-width: 992px) {
     .responsive-chart {
-        padding-bottom: 60%;
-        min-height: 200px;
+        height: 270px;
     }
 }
 
 @media (max-width: 768px) {
     .responsive-chart {
-        padding-bottom: 65%;
-        min-height: 180px;
+        height: 250px;
     }
 }
 
 @media (max-width: 576px) {
     .responsive-chart {
-        padding-bottom: 75%;
-        min-height: 150px;
+        height: 220px;
     }
     
     .chart-container .btn {
