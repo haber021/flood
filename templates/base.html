@@ -177,38 +177,56 @@
         
         // Initialize alerts
         function checkActiveAlerts() {
+            // Check if alert elements exist on this page
+            const alertsBanner = document.getElementById('alerts-banner');
+            if (!alertsBanner) {
+                // Skip alert checking if alert banner doesn't exist on this page
+                return;
+            }
+            
             fetch('/api/flood-alerts/?active=true')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    const alertsBanner = document.getElementById('alerts-banner');
                     if (data.results && data.results.length > 0) {
                         // Sort alerts by severity
                         const alerts = data.results.sort((a, b) => b.severity_level - a.severity_level);
                         const highestAlert = alerts[0];
                         
                         // Update alert message
-                        document.getElementById('alert-message').textContent = highestAlert.title;
+                        const alertMessage = document.getElementById('alert-message');
+                        if (alertMessage) alertMessage.textContent = highestAlert.title;
                         
                         // Update countdown if predicted time exists
-                        if (highestAlert.predicted_flood_time) {
-                            const predictedTime = new Date(highestAlert.predicted_flood_time);
-                            const now = new Date();
-                            const timeRemaining = predictedTime - now;
-                            
-                            if (timeRemaining > 0) {
-                                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-                                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-                                document.getElementById('alert-countdown').textContent = `ETA: ${hours}h ${minutes}m`;
+                        const alertCountdown = document.getElementById('alert-countdown');
+                        if (alertCountdown) {
+                            if (highestAlert.predicted_flood_time) {
+                                const predictedTime = new Date(highestAlert.predicted_flood_time);
+                                const now = new Date();
+                                const timeRemaining = predictedTime - now;
+                                
+                                if (timeRemaining > 0) {
+                                    const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                                    const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                                    alertCountdown.textContent = `ETA: ${hours}h ${minutes}m`;
+                                } else {
+                                    alertCountdown.textContent = 'Impact Imminent';
+                                }
                             } else {
-                                document.getElementById('alert-countdown').textContent = 'Impact Imminent';
+                                alertCountdown.textContent = '';
                             }
-                        } else {
-                            document.getElementById('alert-countdown').textContent = '';
                         }
                         
                         // Update last updated time
-                        const updatedTime = new Date(highestAlert.updated_at);
-                        document.getElementById('alert-time').textContent = updatedTime.toLocaleString();
+                        const alertTime = document.getElementById('alert-time');
+                        if (alertTime) {
+                            const updatedTime = new Date(highestAlert.updated_at);
+                            alertTime.textContent = updatedTime.toLocaleString();
+                        }
                         
                         // Show the alert banner
                         alertsBanner.classList.remove('d-none');
@@ -222,7 +240,11 @@
                         alertsBanner.classList.add('d-none');
                     }
                 })
-                .catch(error => console.error('Error checking alerts:', error));
+                .catch(error => {
+                    console.error('Error checking alerts:', error.message || 'Unknown error');
+                    // Hide the alert banner on error to prevent stale information
+                    alertsBanner.classList.add('d-none');
+                });
         }
         
         // Play alert sound
