@@ -247,8 +247,24 @@ function loadChartData(sensorType) {
         chart.update();
     }
     
-    // Fetch data from API
-    fetch(`/api/chart-data/?type=${sensorType}&days=${chartTimePeriod}`)
+    // Construct the URL with parameters
+    let url = `/api/chart-data/?type=${sensorType}&days=${chartTimePeriod}`;
+    
+    // Add location parameters if available
+    if (window.selectedMunicipality) {
+        url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`[Chart] Adding municipality filter: ${window.selectedMunicipality.name}`);
+    }
+    
+    if (window.selectedBarangay) {
+        url += `&barangay_id=${window.selectedBarangay.id}`;
+        console.log(`[Chart] Adding barangay filter: ${window.selectedBarangay.name}`);
+    }
+    
+    console.log(`[Chart] Fetching ${sensorType} data with URL: ${url}`);
+    
+    // Fetch data from API with location filters
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);

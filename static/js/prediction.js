@@ -180,10 +180,28 @@ function loadHistoricalData() {
         historicalChart.options.scales.y.title.text = 'Water Level (m)';
     }
     
-    // Fetch data from API
-    fetch(`/api/chart-data/?type=${currentHistoricalMode}&days=${currentHistoricalPeriod}`)
+    // Construct the URL with parameters
+    let url = `/api/chart-data/?type=${currentHistoricalMode}&days=${currentHistoricalPeriod}`;
+    
+    // Add location parameters if available
+    if (window.selectedMunicipality) {
+        url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`Adding municipality filter: ${window.selectedMunicipality.name}`);
+    }
+    
+    if (window.selectedBarangay) {
+        url += `&barangay_id=${window.selectedBarangay.id}`;
+        console.log(`Adding barangay filter: ${window.selectedBarangay.name}`);
+    }
+    
+    console.log(`Fetching historical ${currentHistoricalMode} data with URL: ${url}`);
+    
+    // Fetch data from API with location filters
+    fetch(url)
         .then(response => response.json())
         .then(data => {
+            console.log(`Received ${data.labels ? data.labels.length : 0} data points for ${currentHistoricalMode}`);
+            
             // Update current data
             historicalChart.data.labels = data.labels || [];
             historicalChart.data.datasets[0].data = data.values || [];
@@ -213,10 +231,28 @@ function addHistoricalComparisonData() {
     // Get current dataset values to help calculate thresholds
     const currentData = historicalChart.data.datasets[0].data;
     
-    // Fetch actual historical average data from the API
-    fetch(`/api/chart-data/?type=${currentHistoricalMode}&days=${currentHistoricalPeriod}&historical=true`)
+    // Construct the URL with parameters
+    let url = `/api/chart-data/?type=${currentHistoricalMode}&days=${currentHistoricalPeriod}&historical=true`;
+    
+    // Add location parameters if available for consistent data filtering
+    if (window.selectedMunicipality) {
+        url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`Adding municipality filter for historical comparison: ${window.selectedMunicipality.name}`);
+    }
+    
+    if (window.selectedBarangay) {
+        url += `&barangay_id=${window.selectedBarangay.id}`;
+        console.log(`Adding barangay filter for historical comparison: ${window.selectedBarangay.name}`);
+    }
+    
+    console.log(`Fetching historical comparison data with URL: ${url}`);
+    
+    // Fetch actual historical average data from the API with location filters
+    fetch(url)
         .then(response => response.json())
         .then(data => {
+            console.log(`Received ${data.historical_values ? data.historical_values.length : 0} historical comparison data points`);
+            
             // Add the historical dataset if we have data
             if (data.historical_values && data.historical_values.length > 0) {
                 historicalChart.data.datasets.push({
