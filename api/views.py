@@ -4,7 +4,14 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Max, Avg, Sum, Q, Count, Min
 import math
+import logging
 from datetime import timedelta
+
+# Import ML model functions
+from flood_monitoring.ml.flood_prediction_model import predict_flood_probability, get_affected_barangays as ml_get_affected_barangays
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 from core.models import (
     Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
@@ -251,10 +258,16 @@ class ThresholdSettingViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(last_updated_by=self.request.user)
 
+from flood_monitoring.ml.flood_prediction_model import predict_flood_probability, get_affected_barangays as ml_get_affected_barangays
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def flood_prediction(request):
-    """API endpoint for flood prediction based on real-time sensor data"""
+    """API endpoint for flood prediction based on real-time sensor data using ML models"""
     
     # Get location filters from request parameters
     municipality_id = request.GET.get('municipality_id', None)
@@ -264,6 +277,7 @@ def flood_prediction(request):
     sensor_filters = {}
     
     # Apply location filters if provided
+    municipality = None
     if municipality_id:
         try:
             # Get the municipality
@@ -273,6 +287,7 @@ def flood_prediction(request):
         except Municipality.DoesNotExist:
             pass
     
+    barangay = None
     if barangay_id:
         try:
             # Get the barangay
@@ -285,9 +300,10 @@ def flood_prediction(request):
     # Get recent rainfall data
     end_date = timezone.now()
     start_date_24h = end_date - timedelta(hours=24)
-    start_date_72h = end_date - timedelta(hours=72)
+    start_date_48h = end_date - timedelta(hours=48)
+    start_date_7d = end_date - timedelta(days=7)
     
-    # Get rainfall data for the past 24 and 72 hours
+    # Get rainfall data for different time periods
     rainfall_filters_24h = {
         'sensor__sensor_type': 'rainfall',
         'timestamp__gte': start_date_24h,
@@ -299,15 +315,26 @@ def flood_prediction(request):
         **rainfall_filters_24h
     ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
     
-    rainfall_filters_72h = {
+    rainfall_filters_48h = {
         'sensor__sensor_type': 'rainfall',
-        'timestamp__gte': start_date_72h,
+        'timestamp__gte': start_date_48h,
         'timestamp__lte': end_date
     }
-    rainfall_filters_72h.update(sensor_filters)  # Add location filters
+    rainfall_filters_48h.update(sensor_filters)  # Add location filters
     
-    rainfall_72h = SensorData.objects.filter(
-        **rainfall_filters_72h
+    rainfall_48h = SensorData.objects.filter(
+        **rainfall_filters_48h
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
+    rainfall_filters_7d = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_7d,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_7d.update(sensor_filters)  # Add location filters
+    
+    rainfall_7d = SensorData.objects.filter(
+        **rainfall_filters_7d
     ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
     
     # Get water level data
@@ -317,9 +344,24 @@ def flood_prediction(request):
     }
     water_level_filters.update(sensor_filters)  # Add location filters
     
-    water_level = SensorData.objects.filter(
+    water_level_data = SensorData.objects.filter(
         **water_level_filters
-    ).aggregate(current=Max('value'), avg=Avg('value'))
+    ).order_by('-timestamp')
+    
+    water_level_current = 0
+    water_level_24h_ago = 0
+    
+    # Get current water level and water level 24 hours ago
+    if water_level_data.exists():
+        water_level_current = water_level_data.first().value
+        
+        # Get water level 24 hours ago (approximately)
+        old_water_level_data = water_level_data.filter(timestamp__lte=start_date_24h + timedelta(hours=1)).order_by('-timestamp').first()
+        if old_water_level_data:
+            water_level_24h_ago = old_water_level_data.value
+    
+    # Calculate water level change in 24 hours
+    water_level_change_24h = water_level_current - water_level_24h_ago
     
     # Get soil saturation (using humidity as a proxy in our system)
     humidity_filters = {
@@ -332,27 +374,16 @@ def flood_prediction(request):
         **humidity_filters
     ).aggregate(current=Max('value'), avg=Avg('value'))
     
-    # Calculate flood probability based on real data
-    # This is a simplified model - a real system would use more complex ML/AI
-    probability = 0
+    # Get temperature data
+    temp_filters = {
+        'sensor__sensor_type': 'temperature',
+        'timestamp__gte': start_date_24h
+    }
+    temp_filters.update(sensor_filters)  # Add location filters
     
-    # Factor 1: Recent heavy rainfall (24-hour)
-    if rainfall_24h['total']:
-        if rainfall_24h['total'] > 50:  # More than 50mm in 24 hours is significant
-            probability += 30
-        elif rainfall_24h['total'] > 25:
-            probability += 20
-        elif rainfall_24h['total'] > 10:
-            probability += 10
-    
-    # Factor 2: Sustained rainfall (72-hour)
-    if rainfall_72h['total']:
-        if rainfall_72h['total'] > 100:  # More than 100mm in 72 hours
-            probability += 25
-        elif rainfall_72h['total'] > 50:
-            probability += 15
-        elif rainfall_72h['total'] > 25:
-            probability += 5
+    temperature = SensorData.objects.filter(
+        **temp_filters
+    ).aggregate(current=Max('value'), avg=Avg('value'))
     
     # Factor 3: Current water level
     if water_level['current']:
