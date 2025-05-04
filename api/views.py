@@ -311,15 +311,25 @@ def flood_prediction(request):
     ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
     
     # Get water level data
+    water_level_filters = {
+        'sensor__sensor_type': 'water_level',
+        'timestamp__gte': start_date_24h
+    }
+    water_level_filters.update(sensor_filters)  # Add location filters
+    
     water_level = SensorData.objects.filter(
-        sensor__sensor_type='water_level',
-        timestamp__gte=start_date_24h
+        **water_level_filters
     ).aggregate(current=Max('value'), avg=Avg('value'))
     
     # Get soil saturation (using humidity as a proxy in our system)
+    humidity_filters = {
+        'sensor__sensor_type': 'humidity',
+        'timestamp__gte': start_date_24h
+    }
+    humidity_filters.update(sensor_filters)  # Add location filters
+    
     humidity = SensorData.objects.filter(
-        sensor__sensor_type='humidity',
-        timestamp__gte=start_date_24h
+        **humidity_filters
     ).aggregate(current=Max('value'), avg=Avg('value'))
     
     # Calculate flood probability based on real data
@@ -433,10 +443,31 @@ def flood_prediction(request):
             severity_level = 2  # Watch
             
         # Get barangays with recent alerts of this severity or higher
-        recent_alerts = FloodAlert.objects.filter(
-            severity_level__gte=severity_level,
-            issued_at__gte=start_date_72h
-        )
+        recent_alert_filters = {
+            'severity_level__gte': severity_level,
+            'issued_at__gte': start_date_72h
+        }
+        
+        # If a municipality filter was provided, get alerts for that municipality's barangays
+        if municipality_id:
+            try:
+                municipality = Municipality.objects.get(id=municipality_id)
+                # Get all barangays in this municipality
+                municipality_barangays = Barangay.objects.filter(municipality=municipality).values_list('id', flat=True)
+                # Only include alerts that affect at least one barangay in this municipality
+                recent_alert_filters['affected_barangays__in'] = municipality_barangays
+            except Municipality.DoesNotExist:
+                pass
+        
+        # If a specific barangay was requested, only get alerts for that barangay
+        if barangay_id:
+            try:
+                barangay = Barangay.objects.get(id=barangay_id)
+                recent_alert_filters['affected_barangays'] = barangay
+            except Barangay.DoesNotExist:
+                pass
+        
+        recent_alerts = FloodAlert.objects.filter(**recent_alert_filters)
         
         if recent_alerts.exists():
             # Use barangays from similar past alerts
@@ -449,18 +480,59 @@ def flood_prediction(request):
             # Fallback to barangays near water sensors with high readings
             if water_level['current'] and water_level['current'] > 0.5:
                 # Get sensors with high water level readings
+                high_water_sensor_filters = {
+                    'sensor__sensor_type': 'water_level',
+                    'value__gte': 0.5,
+                    'timestamp__gte': start_date_24h
+                }
+                high_water_sensor_filters.update(sensor_filters)  # Add location filters
+                
                 high_water_sensors = SensorData.objects.filter(
-                    sensor__sensor_type='water_level',
-                    value__gte=0.5,
-                    timestamp__gte=start_date_24h
+                    **high_water_sensor_filters
                 ).values_list('sensor_id', flat=True).distinct()
                 
-                # Get random barangays
-                # In a real system, we would have sensor-barangay relationships
-                barangays = Barangay.objects.all()[:5]
+                # Get barangays from the requested municipality or a subset of all barangays
+                barangay_filters = {}
+                
+                # If a municipality filter was provided, use it for barangays too
+                if municipality_id:
+                    try:
+                        municipality = Municipality.objects.get(id=municipality_id)
+                        barangay_filters['municipality'] = municipality
+                    except Municipality.DoesNotExist:
+                        pass
+                        
+                # If a specific barangay was requested, prioritize it
+                if barangay_id:
+                    try:
+                        specific_barangay = Barangay.objects.get(id=barangay_id)
+                        barangays = [specific_barangay]
+                    except Barangay.DoesNotExist:
+                        # Fall back to filtered barangays
+                        barangays = Barangay.objects.filter(**barangay_filters).order_by('name')[:5]
+                else:
+                    # Get barangays based on municipality filter
+                    barangays = Barangay.objects.filter(**barangay_filters).order_by('name')[:5]
             else:
-                # Get random barangays if we can't determine from sensors
-                barangays = Barangay.objects.all()[:3]
+                # Get a smaller set of barangays if water level is not high
+                barangay_filters = {}
+                
+                # If a municipality filter was provided, use it for barangays too
+                if municipality_id:
+                    try:
+                        municipality = Municipality.objects.get(id=municipality_id)
+                        barangay_filters['municipality'] = municipality
+                    except Municipality.DoesNotExist:
+                        pass
+                
+                if barangay_id:
+                    try:
+                        specific_barangay = Barangay.objects.get(id=barangay_id)
+                        barangays = [specific_barangay]
+                    except Barangay.DoesNotExist:
+                        barangays = Barangay.objects.filter(**barangay_filters).order_by('name')[:3]
+                else:
+                    barangays = Barangay.objects.filter(**barangay_filters).order_by('name')[:3]
         
         # Format barangay data for response
         for barangay in barangays:
