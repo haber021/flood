@@ -98,6 +98,11 @@ function initializeCharts() {
 function createChart(canvasId, label, colors) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     
+    // Register the zoom plugin if not already registered
+    if (!Chart.registry.getPlugin('zoom')) {
+        console.warn('Chart.js zoom plugin not detected. Some features may be limited.');
+    }
+    
     return new Chart(ctx, {
         type: 'line',
         data: {
@@ -116,30 +121,63 @@ function createChart(canvasId, label, colors) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 750, // General animation duration
+                easing: 'easeOutQuart'
+            },
             scales: {
                 y: {
                     beginAtZero: false,
                     title: {
                         display: true,
                         text: label
+                    },
+                    ticks: {
+                        // Add padding so that points near the top or bottom are visible
+                        padding: 10
                     }
                 },
                 x: {
                     title: {
                         display: true,
                         text: 'Time'
+                    },
+                    ticks: {
+                        // For better readability on mobile
+                        maxRotation: 45,
+                        minRotation: 0
                     }
                 }
             },
             plugins: {
                 tooltip: {
                     mode: 'index',
-                    intersect: false
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    titleFont: {
+                        size: 14
+                    },
+                    bodyFont: {
+                        size: 13
+                    },
+                    padding: 10
                 },
                 legend: {
                     position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15
+                    }
                 },
                 zoom: {
+                    limits: {
+                        y: {min: 'original', max: 'original', minRange: 1}
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'xy',
+                        threshold: 10
+                    },
                     zoom: {
                         wheel: {
                             enabled: true,
@@ -148,7 +186,8 @@ function createChart(canvasId, label, colors) {
                             enabled: true
                         },
                         drag: {
-                            enabled: true
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 100, 200, 0.1)'
                         },
                         mode: 'xy',
                     }
