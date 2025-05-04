@@ -15,4 +15,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('add-sensor-data/', views.add_sensor_data, name='add_sensor_data'),
     path('prediction/', views.flood_prediction, name='flood_prediction'),
+    path('compare-algorithms/', views.compare_prediction_algorithms, name='compare_algorithms'),
 ]

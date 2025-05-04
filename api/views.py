@@ -9,6 +9,8 @@ from datetime import timedelta
 
 # Import ML model functions
 from flood_monitoring.ml.flood_prediction_model import predict_flood_probability, get_affected_barangays as ml_get_affected_barangays
+from flood_monitoring.ml.flood_prediction_model import ADVANCED_ALGORITHMS_AVAILABLE, TENSORFLOW_AVAILABLE
+from flood_monitoring.ml.flood_prediction_model import DEFAULT_CLASSIFICATION_ALGORITHM
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -274,12 +276,222 @@ class ThresholdSettingViewSet(viewsets.ModelViewSet):
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
+def compare_prediction_algorithms(request):
+    """API endpoint for comparing predictions from different ML algorithms"""
+    
+    # Get location filters from request parameters
+    municipality_id = request.GET.get('municipality_id', None)
+    barangay_id = request.GET.get('barangay_id', None)
+    
+    # Get the algorithms to compare
+    algorithms = request.GET.getlist('algorithms', [])
+    
+    # Default to comparing all available algorithms if none specified
+    if not algorithms:
+        algorithms = ['random_forest']
+        if ADVANCED_ALGORITHMS_AVAILABLE:
+            algorithms.extend(['gradient_boosting', 'svm'])
+            if TENSORFLOW_AVAILABLE:
+                algorithms.append('lstm')
+    
+    # Query filters to apply to sensor data - same as flood_prediction
+    sensor_filters = {}
+    
+    # Apply location filters if provided
+    municipality = None
+    if municipality_id:
+        try:
+            # Get the municipality
+            municipality = Municipality.objects.get(id=municipality_id)
+            # Filter sensors by municipality
+            sensor_filters['sensor__municipality'] = municipality
+        except Municipality.DoesNotExist:
+            pass
+    
+    barangay = None
+    if barangay_id:
+        try:
+            # Get the barangay
+            barangay = Barangay.objects.get(id=barangay_id)
+            # Filter sensors by barangay
+            sensor_filters['sensor__barangay'] = barangay
+        except Barangay.DoesNotExist:
+            pass
+    
+    # Get recent rainfall data
+    end_date = timezone.now()
+    start_date_24h = end_date - timedelta(hours=24)
+    start_date_48h = end_date - timedelta(hours=48)
+    start_date_7d = end_date - timedelta(days=7)
+    
+    # Get rainfall data for different time periods
+    rainfall_filters_24h = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_24h,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_24h.update(sensor_filters)  # Add location filters
+    
+    rainfall_24h = SensorData.objects.filter(
+        **rainfall_filters_24h
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
+    rainfall_filters_48h = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_48h,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_48h.update(sensor_filters)  # Add location filters
+    
+    rainfall_48h = SensorData.objects.filter(
+        **rainfall_filters_48h
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
+    rainfall_filters_7d = {
+        'sensor__sensor_type': 'rainfall',
+        'timestamp__gte': start_date_7d,
+        'timestamp__lte': end_date
+    }
+    rainfall_filters_7d.update(sensor_filters)  # Add location filters
+    
+    rainfall_7d = SensorData.objects.filter(
+        **rainfall_filters_7d
+    ).aggregate(total=Sum('value'), avg=Avg('value'), max=Max('value'))
+    
+    # Get water level, soil saturation, and temperature data (same as in flood_prediction)
+    water_level_filters = {
+        'sensor__sensor_type': 'water_level',
+        'timestamp__gte': start_date_24h
+    }
+    water_level_filters.update(sensor_filters)  # Add location filters
+    
+    water_level_data = SensorData.objects.filter(
+        **water_level_filters
+    ).order_by('-timestamp')
+    
+    water_level_current = 0
+    water_level_24h_ago = 0
+    
+    # Get current water level and water level 24 hours ago
+    if water_level_data.exists():
+        water_level_current = water_level_data.first().value
+        
+        # Get water level 24 hours ago (approximately)
+        old_water_level_data = water_level_data.filter(timestamp__lte=start_date_24h + timedelta(hours=1)).order_by('-timestamp').first()
+        if old_water_level_data:
+            water_level_24h_ago = old_water_level_data.value
+    
+    # Calculate water level change in 24 hours
+    water_level_change_24h = water_level_current - water_level_24h_ago
+    
+    # Get soil saturation (using humidity as a proxy in our system)
+    humidity_filters = {
+        'sensor__sensor_type': 'humidity',
+        'timestamp__gte': start_date_24h
+    }
+    humidity_filters.update(sensor_filters)  # Add location filters
+    
+    humidity_data = SensorData.objects.filter(
+        **humidity_filters
+    ).order_by('-timestamp')
+    
+    soil_saturation = 0
+    
+    if humidity_data.exists():
+        # Using humidity as a proxy for soil saturation
+        soil_saturation = humidity_data.first().value
+    
+    # Get temperature data
+    temp_filters = {
+        'sensor__sensor_type': 'temperature',
+        'timestamp__gte': start_date_24h
+    }
+    temp_filters.update(sensor_filters)  # Add location filters
+    
+    temp_data = SensorData.objects.filter(
+        **temp_filters
+    ).order_by('-timestamp')
+    
+    temperature_value = 25  # Default temperature
+    
+    if temp_data.exists():
+        temperature_value = temp_data.first().value
+    
+    # Create input data for ML prediction model
+    input_data = {
+        'rainfall_24h': rainfall_24h['total'] if rainfall_24h['total'] else 0,
+        'rainfall_48h': rainfall_48h['total'] if rainfall_48h['total'] else 0,
+        'rainfall_7d': rainfall_7d['total'] if rainfall_7d['total'] else 0,
+        'water_level': water_level_current,
+        'water_level_change_24h': water_level_change_24h,
+        'temperature': temperature_value,
+        'humidity': soil_saturation,
+        'soil_saturation': soil_saturation,
+        # Use a default elevation for the selected area
+        'elevation': 25 if municipality else 20,
+        # Add the month and day for seasonal patterns
+        'month': end_date.month,
+        'day_of_year': end_date.timetuple().tm_yday,
+        # Historical floods (this would come from a database in a real system)
+        'historical_floods_count': 2 if barangay_id else 1
+    }
+    
+    logger.info(f"Input data for ML prediction comparison: {input_data}")
+    
+    # Compare predictions from different algorithms
+    comparison_results = []
+    
+    for algorithm in algorithms:
+        try:
+            # Use the ML model to predict flood probability with this algorithm
+            ml_prediction = predict_flood_probability(input_data, classification_algorithm=algorithm)
+            logger.info(f"ML Prediction results using {algorithm} algorithm: {ml_prediction}")
+            
+            # Format the prediction result with algorithm info
+            algorithm_result = {
+                'algorithm': algorithm,
+                'probability': ml_prediction['probability'],
+                'severity_level': ml_prediction['severity_level'],
+                'severity_name': get_severity_name(ml_prediction['severity_level']),
+                'hours_to_flood': ml_prediction['hours_to_flood'],
+                'impact': ml_prediction['impact'],
+                'contributing_factors': ml_prediction['contributing_factors']
+            }
+            
+            comparison_results.append(algorithm_result)
+        except Exception as e:
+            logger.error(f"Error using {algorithm} for prediction: {e}")
+            # Skip this algorithm and continue with others
+            comparison_results.append({
+                'algorithm': algorithm,
+                'error': str(e),
+                'status': 'failed'
+            })
+    
+    # Return the comparison results
+    return Response({
+        'input_data': input_data,
+        'available_algorithms': algorithms,
+        'results': comparison_results,
+        'location': {
+            'municipality': municipality.name if municipality else None,
+            'municipality_id': municipality.id if municipality else None,
+            'barangay': barangay.name if barangay else None,
+            'barangay_id': barangay.id if barangay else None
+        },
+        'timestamp': end_date,
+        'default_algorithm': DEFAULT_CLASSIFICATION_ALGORITHM
+    })
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
 def flood_prediction(request):
     """API endpoint for flood prediction based on real-time sensor data using ML models"""
     
     # Get location filters from request parameters
     municipality_id = request.GET.get('municipality_id', None)
     barangay_id = request.GET.get('barangay_id', None)
+    algorithm = request.GET.get('algorithm', None)  # Get algorithm selection if provided
     
     # Query filters to apply to sensor data
     sensor_filters = {}
@@ -445,8 +657,9 @@ def flood_prediction(request):
     
     try:
         # Use the ML model to predict flood probability
-        ml_prediction = predict_flood_probability(input_data)
-        logger.info(f"ML Prediction results: {ml_prediction}")
+        # If algorithm is specified and supported, use it
+        ml_prediction = predict_flood_probability(input_data, classification_algorithm=algorithm) if algorithm else predict_flood_probability(input_data)
+        logger.info(f"ML Prediction results using {algorithm if algorithm else 'default'} algorithm: {ml_prediction}")
         
         # Extract prediction data
         probability = ml_prediction['probability']
