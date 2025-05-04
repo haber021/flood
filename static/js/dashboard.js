@@ -105,7 +105,14 @@ function updateSensorData() {
             document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
         })
         .catch(error => {
-            console.error('Error fetching sensor data:', error);
+            // Check if map-last-updated element exists before trying to update it
+            const lastUpdatedElement = document.getElementById('map-last-updated');
+            if (lastUpdatedElement) {
+                lastUpdatedElement.textContent = 'Data unavailable';
+            }
+            
+            // Log the error but don't display the empty object in the console
+            console.error('Error fetching sensor data:', error.message || 'Network or server error');
         });
 }
 
@@ -371,7 +378,18 @@ function checkActiveAlerts() {
                             }
                         })
                         .catch(error => {
-                            console.error('Error fetching barangay data:', error);
+                            // Log the error but don't display the empty object in the console
+                            console.error('Error fetching barangay data:', error.message || 'Network or server error');
+                            
+                            // Show a message in the affected barangays container
+                            if (affectedBarangaysContainer) {
+                                affectedBarangaysContainer.innerHTML = `
+                                    <div class="alert alert-secondary">
+                                        <i class="fas fa-exclamation-circle me-2"></i>
+                                        Unable to load barangay details at this time.
+                                    </div>
+                                `;
+                            }
                         });
                     
                 } else {
@@ -408,7 +426,24 @@ function checkActiveAlerts() {
             }
         })
         .catch(error => {
-            console.error('Error checking alerts:', error);
+            // Check if containers exist before trying to update them
+            const alertsContainer = document.getElementById('alerts-list');
+            const noAlertsElement = document.getElementById('no-alerts');
+            
+            // If alert elements exist, show no alerts message
+            if (alertsContainer && noAlertsElement) {
+                alertsContainer.classList.add('d-none');
+                noAlertsElement.classList.remove('d-none');
+                noAlertsElement.innerHTML = '<div class="alert alert-secondary">Unable to load alerts at this time.</div>';
+            }
+            
+            // Log the error but don't display the empty object in the console
+            console.error('Error checking alerts:', error.message || 'Network or server error');
+            
+            // Update alert status to normal as a fallback
+            if (typeof updateAlertStatus === 'function') {
+                updateAlertStatus(null);
+            }
         });
 }
 
