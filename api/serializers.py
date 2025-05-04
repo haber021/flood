@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from core.models import (
     Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
-    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact,
+    ResilienceScore
 )
 
 class SensorSerializer(serializers.ModelSerializer):

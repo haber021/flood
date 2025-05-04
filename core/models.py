@@ -238,3 +238,107 @@ def save_user_profile(sender, instance, **kwargs):
     if not hasattr(instance, 'profile'):
         UserProfile.objects.create(user=instance)
     instance.profile.save()
+
+
+class ResilienceScore(models.Model):
+    """Model for community resilience scoring"""
+    # Location associations
+    municipality = models.ForeignKey(Municipality, on_delete=models.CASCADE, related_name='resilience_scores', null=True, blank=True)
+    barangay = models.ForeignKey(Barangay, on_delete=models.CASCADE, related_name='resilience_scores', null=True, blank=True)
+    
+    # Core resilience metric scores (0-100 scale)
+    infrastructure_score = models.IntegerField(help_text="Score for infrastructure preparedness (0-100)")
+    social_capital_score = models.IntegerField(help_text="Score for community cohesion and social capital (0-100)")
+    institutional_score = models.IntegerField(help_text="Score for institutional capacity and governance (0-100)")
+    economic_score = models.IntegerField(help_text="Score for economic resources and recovery capacity (0-100)")
+    environmental_score = models.IntegerField(help_text="Score for environmental protection and natural buffers (0-100)")
+    
+    # Weighted overall score
+    overall_score = models.FloatField(help_text="Overall weighted resilience score (0-100)")
+    
+    # Score interpretation - textual category
+    RESILIENCE_CATEGORIES = [
+        ('very_low', 'Very Low Resilience'),
+        ('low', 'Low Resilience'),
+        ('moderate', 'Moderate Resilience'),
+        ('high', 'High Resilience'),
+        ('very_high', 'Very High Resilience'),
+    ]
+    resilience_category = models.CharField(
+        max_length=20, 
+        choices=RESILIENCE_CATEGORIES,
+        help_text="Category interpretation of the overall score"
+    )
+    
+    # Recommendations field
+    recommendations = models.TextField(help_text="Suggestions for improving resilience", null=True, blank=True)
+    
+    # Assessment metadata
+    assessed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='resilience_assessments')
+    assessment_date = models.DateField(default=timezone.now)
+    valid_until = models.DateField(null=True, blank=True, help_text="Date when reassessment is recommended")
+    methodology = models.CharField(max_length=100, default="Standard Assessment", help_text="Assessment methodology used")
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Boolean to track if this is the most recent assessment
+    is_current = models.BooleanField(default=True, help_text="Whether this is the most current assessment")
+    
+    class Meta:
+        ordering = ['-assessment_date']
+        verbose_name = "Community Resilience Score"
+        verbose_name_plural = "Community Resilience Scores"
+    
+    def __str__(self):
+        location = self.barangay if self.barangay else self.municipality
+        return f"{location} Resilience: {self.overall_score:.1f} ({self.get_resilience_category_display()})"
+    
+    def save(self, *args, **kwargs):
+        # Calculate overall score if not provided
+        if not self.overall_score:
+            # Default weights for different components
+            weights = {
+                'infrastructure': 0.25,
+                'social': 0.2,
+                'institutional': 0.2,
+                'economic': 0.2,
+                'environmental': 0.15
+            }
+            
+            self.overall_score = (
+                self.infrastructure_score * weights['infrastructure'] +
+                self.social_capital_score * weights['social'] +
+                self.institutional_score * weights['institutional'] +
+                self.economic_score * weights['economic'] +
+                self.environmental_score * weights['environmental']
+            )
+        
+        # Determine resilience category based on overall score
+        if self.overall_score < 20:
+            self.resilience_category = 'very_low'
+        elif self.overall_score < 40:
+            self.resilience_category = 'low'
+        elif self.overall_score < 60:
+            self.resilience_category = 'moderate'
+        elif self.overall_score < 80:
+            self.resilience_category = 'high'
+        else:
+            self.resilience_category = 'very_high'
+        
+        # If this is marked as current, update other assessments for same location
+        if self.is_current:
+            if self.barangay:
+                ResilienceScore.objects.filter(
+                    barangay=self.barangay, 
+                    is_current=True
+                ).exclude(pk=self.pk).update(is_current=False)
+            elif self.municipality:
+                ResilienceScore.objects.filter(
+                    municipality=self.municipality, 
+                    barangay__isnull=True,
+                    is_current=True
+                ).exclude(pk=self.pk).update(is_current=False)
+        
+        super().save(*args, **kwargs)
+

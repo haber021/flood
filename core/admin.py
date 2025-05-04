@@ -3,7 +3,8 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin
 from .models import (
     Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
-    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact, UserProfile
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact, UserProfile,
+    ResilienceScore
 )
 
 @admin.register(Sensor)
@@ -92,6 +93,39 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_filter = ('role', 'municipality', 'barangay', 'receive_alerts', 'receive_sms', 'receive_email')
     search_fields = ('user__username', 'user__email', 'phone_number')
     raw_id_fields = ('user',)
+
+# Resilience Score admin
+@admin.register(ResilienceScore)
+class ResilienceScoreAdmin(admin.ModelAdmin):
+    list_display = ('get_location_name', 'overall_score', 'resilience_category', 'assessment_date', 'is_current')
+    list_filter = ('resilience_category', 'is_current', 'assessment_date', 'municipality', 'barangay')
+    search_fields = ('municipality__name', 'barangay__name', 'recommendations')
+    readonly_fields = ('overall_score', 'resilience_category')
+    fieldsets = (
+        ('Location', {
+            'fields': ('municipality', 'barangay')
+        }),
+        ('Assessment Scores', {
+            'fields': (
+                'infrastructure_score', 'social_capital_score', 'institutional_score',
+                'economic_score', 'environmental_score', 'overall_score', 'resilience_category'
+            )
+        }),
+        ('Recommendations & Notes', {
+            'fields': ('recommendations', 'notes')
+        }),
+        ('Assessment Metadata', {
+            'fields': ('assessed_by', 'assessment_date', 'valid_until', 'methodology', 'is_current')
+        })
+    )
+    
+    def get_location_name(self, obj):
+        if obj.barangay:
+            return f"{obj.barangay.name}, {obj.municipality.name}"
+        elif obj.municipality:
+            return f"{obj.municipality.name}"
+        return "Unknown Location"
+    get_location_name.short_description = "Location"
 
 # Re-register UserAdmin
 admin.site.unregister(User)
