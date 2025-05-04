@@ -341,6 +341,37 @@ body {
     min-height: 250px;
 }
 
+/* Dashboard wide screen optimizations */
+@media (min-width: 1400px) {
+    /* Distribute dashboard sections more evenly on wider screens */
+    .dashboard-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+    
+    /* Make sure cards have proper margins on wide screens */
+    .card {
+        margin-bottom: 1.75rem;
+    }
+    
+    /* Optimize font sizes for readability on large screens */
+    .card-title {
+        font-size: 1.2rem;
+    }
+    
+    /* Improve the spacing of UI elements */
+    .btn {
+        margin: 0 0.15rem;
+    }
+    
+    /* Better use of horizontal space */
+    .container-fluid {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+}
+
 .responsive-chart canvas {
     position: absolute;
     top: 0;
@@ -354,15 +385,35 @@ body {
 /* For wider screens */
 @media (min-width: 1400px) {
     .responsive-chart {
-        padding-bottom: 40%; /* Flatter aspect ratio for wide screens */
+        padding-bottom: 36%; /* Flatter aspect ratio for wide screens */
         min-height: 300px;
+    }
+    
+    /* Make charts container take more space on wide screens */
+    .col-lg-5.col-xxl-4 {
+        flex: 0 0 auto;
+        width: 41.66666667%;
     }
 }
 
 @media (min-width: 1800px) {
     .responsive-chart {
-        padding-bottom: 35%; /* Even flatter for extra wide screens */
-        min-height: 350px;
+        padding-bottom: 30%; /* Even flatter for extra wide screens */
+        min-height: 380px;
+    }
+    
+    /* Make charts container even larger on super wide screens */
+    .col-lg-5.col-xxl-4 {
+        flex: 0 0 auto;
+        width: 45%;
+    }
+}
+
+/* For ultra-wide screens */
+@media (min-width: 2200px) {
+    .responsive-chart {
+        padding-bottom: 25%; /* Ultra-flat for ultra-wide screens */
+        min-height: 450px;
     }
 }
 

@@ -182,13 +182,23 @@ function createChart(canvasId, label, colors) {
                 easing: 'easeOutQuart'
             },
             onResize: function(chart, size) {
-                // Adjust point sizes based on screen width
+                // Adjust point sizes and styling based on screen width
                 const newIsMobile = size.width < 768;
+                const isWideScreen = size.width >= 1400;
+                const isUltraWideScreen = size.width >= 2200;
+                
                 chart.data.datasets.forEach(dataset => {
-                    dataset.pointRadius = newIsMobile ? 2 : 3;
-                    dataset.pointHoverRadius = newIsMobile ? 4 : 5;
-                    dataset.borderWidth = newIsMobile ? 1.5 : 2;
+                    // Smaller points on mobile, larger on wide screens
+                    dataset.pointRadius = newIsMobile ? 2 : (isUltraWideScreen ? 4 : (isWideScreen ? 3.5 : 3));
+                    dataset.pointHoverRadius = newIsMobile ? 4 : (isUltraWideScreen ? 7 : (isWideScreen ? 6 : 5));
+                    dataset.borderWidth = newIsMobile ? 1.5 : (isUltraWideScreen ? 2.5 : (isWideScreen ? 2.2 : 2));
+                    
+                    // Adjust line tension for better visualization on wide screens
+                    dataset.tension = isWideScreen ? 0.3 : 0.2;
                 });
+                
+                // Update chart to reflect the changes
+                chart.update('none'); // Update without animation for better performance
             },
             scales: {
                 y: {
