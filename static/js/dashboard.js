@@ -50,6 +50,20 @@ function initializeGauges() {
  * Update sensor data for all gauges and stats
  */
 function updateSensorData() {
+    // Check if user is logged in by looking for a login button
+    const loginButton = document.querySelector('a[href*="/login/"]');
+    if (loginButton) {
+        console.warn('User not logged in, cannot fetch sensor data');
+        
+        // Update gauge displays to show authentication required
+        ['temperature-gauge', 'humidity-gauge', 'rainfall-gauge', 'water-level-gauge', 'wind-speed-gauge'].forEach(gaugeId => {
+            // Use NULL value to show '--' in the gauge
+            updateGauge(gaugeId, null, '', `#${gaugeId.split('-')[0]}-updated`, null);
+        });
+        
+        return;
+    }
+    
     // Construct the URL with location parameters
     let url = '/api/sensor-data/?limit=5';
     
@@ -66,9 +80,20 @@ function updateSensorData() {
     
     console.log(`[Sensor Data] Fetching latest readings with URL: ${url}`);
     
-    // Fetch the latest sensor data with location filters
-    fetch(url)
-        .then(response => response.json())
+    // Fetch the latest sensor data with location filters and authentication
+    fetch(url, {
+        credentials: 'same-origin',  // Include cookies for authentication
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (!data.results || data.results.length === 0) {
                 console.warn('No sensor data available with location filters');
@@ -79,13 +104,30 @@ function updateSensorData() {
                     window.isRetrySensorFetch = true;
                     
                     // Fetch global data (without location filters)
-                    fetch('/api/sensor-data/?limit=5')
-                        .then(response => response.json())
+                    fetch('/api/sensor-data/?limit=5', {
+                        credentials: 'same-origin',  // Include cookies for authentication
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! Status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
                         .then(globalData => {
                             window.isRetrySensorFetch = false;
                             
                             if (!globalData.results || globalData.results.length === 0) {
                                 console.warn('No global sensor data available');
+                                
+                                // Update gauges to show no data
+                                ['temperature-gauge', 'humidity-gauge', 'rainfall-gauge', 'water-level-gauge', 'wind-speed-gauge'].forEach(gaugeId => {
+                                    updateGauge(gaugeId, null, '', `#${gaugeId.split('-')[0]}-updated`, null);
+                                });
+                                
                                 return;
                             }
                             
@@ -96,7 +138,17 @@ function updateSensorData() {
                         .catch(error => {
                             window.isRetrySensorFetch = false;
                             console.error('Error fetching global sensor data:', error);
+                            
+                            // Update gauges to show error
+                            ['temperature-gauge', 'humidity-gauge', 'rainfall-gauge', 'water-level-gauge', 'wind-speed-gauge'].forEach(gaugeId => {
+                                updateGauge(gaugeId, null, '', `#${gaugeId.split('-')[0]}-updated`, null);
+                            });
                         });
+                } else {
+                    // No data and no retry, update gauges to show no data
+                    ['temperature-gauge', 'humidity-gauge', 'rainfall-gauge', 'water-level-gauge', 'wind-speed-gauge'].forEach(gaugeId => {
+                        updateGauge(gaugeId, null, '', `#${gaugeId.split('-')[0]}-updated`, null);
+                    });
                 }
                 return;
             }
@@ -110,6 +162,11 @@ function updateSensorData() {
             if (lastUpdatedElement) {
                 lastUpdatedElement.textContent = 'Data unavailable';
             }
+            
+            // Update gauges to show error
+            ['temperature-gauge', 'humidity-gauge', 'rainfall-gauge', 'water-level-gauge', 'wind-speed-gauge'].forEach(gaugeId => {
+                updateGauge(gaugeId, null, '', `#${gaugeId.split('-')[0]}-updated`, null);
+            });
             
             // Log the error but don't display the empty object in the console
             console.error('Error fetching sensor data:', error.message || 'Network or server error');
@@ -165,17 +222,25 @@ function updateGauge(gaugeId, value, unit, timestampElementId, timestamp = null)
     // Update the gauge value
     const valueElement = gaugeElement.querySelector('.gauge-value');
     if (valueElement) {
-        valueElement.textContent = value.toFixed(1);
+        // Format value to 1 decimal place unless it's null/undefined
+        if (value !== null && value !== undefined && !isNaN(value)) {
+            valueElement.textContent = value.toFixed(1);
+            // Change gauge color based on value if appropriate
+            updateGaugeColor(gaugeId, value);
+        } else {
+            valueElement.textContent = '--';
+        }
     }
     
-    // Change gauge color based on value if appropriate
-    updateGaugeColor(gaugeId, value);
-    
     // Update the timestamp if provided
-    if (timestampElementId && timestamp) {
+    if (timestampElementId) {
         const timestampElement = document.querySelector(timestampElementId);
         if (timestampElement) {
-            timestampElement.textContent = 'Last updated: ' + timestamp.toLocaleString();
+            if (timestamp) {
+                timestampElement.textContent = 'Last updated: ' + timestamp.toLocaleString();
+            } else {
+                timestampElement.textContent = 'Last updated: unavailable';
+            }
         }
     }
 }
