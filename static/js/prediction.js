@@ -450,17 +450,28 @@ function updatePredictionModel() {
             document.getElementById('last-prediction-time').textContent = new Date(data.last_updated).toLocaleString();
             
             // Update rainfall and water level indicators if available
-            if (data.rainfall_24h && data.rainfall_24h.total !== null && data.rainfall_24h.total !== undefined) {
-                const rainfallElement = document.getElementById('rainfall-24h');
-                if (rainfallElement) {
-                    rainfallElement.textContent = `${parseFloat(data.rainfall_24h.total).toFixed(1)}mm`;
+            const rainfallElement = document.getElementById('rainfall-24h');
+            if (rainfallElement) {
+                // Check if rainfall_24h is an object with total property or a direct value
+                if (data.rainfall_24h !== null && data.rainfall_24h !== undefined) {
+                    if (typeof data.rainfall_24h === 'object' && data.rainfall_24h.total !== null && data.rainfall_24h.total !== undefined) {
+                        rainfallElement.textContent = `${parseFloat(data.rainfall_24h.total).toFixed(1)}mm`;
+                    } else if (typeof data.rainfall_24h === 'number') {
+                        rainfallElement.textContent = `${parseFloat(data.rainfall_24h).toFixed(1)}mm`;
+                    } else {
+                        rainfallElement.textContent = '0.0mm';
+                    }
+                } else {
+                    rainfallElement.textContent = '0.0mm';
                 }
             }
             
-            if (data.water_level !== null && data.water_level !== undefined) {
-                const waterLevelElement = document.getElementById('current-water-level');
-                if (waterLevelElement) {
+            const waterLevelElement = document.getElementById('current-water-level');
+            if (waterLevelElement) {
+                if (data.water_level !== null && data.water_level !== undefined) {
                     waterLevelElement.textContent = `${parseFloat(data.water_level).toFixed(2)}m`;
+                } else {
+                    waterLevelElement.textContent = '0.00m';
                 }
             }
         })
