@@ -5,6 +5,7 @@ from . import views
 router = DefaultRouter()
 router.register(r'sensors', views.SensorViewSet)
 router.register(r'sensor-data', views.SensorDataViewSet)
+router.register(r'municipalities', views.MunicipalityViewSet)
 router.register(r'barangays', views.BarangayViewSet)
 router.register(r'flood-alerts', views.FloodAlertViewSet)
 router.register(r'flood-risk-zones', views.FloodRiskZoneViewSet)

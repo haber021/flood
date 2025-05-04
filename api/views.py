@@ -4,11 +4,11 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Max
 from core.models import (
-    Sensor, SensorData, Barangay, FloodRiskZone, 
+    Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
     FloodAlert, ThresholdSetting, NotificationLog
 )
 from .serializers import (
-    SensorSerializer, SensorDataSerializer, BarangaySerializer,
+    SensorSerializer, SensorDataSerializer, MunicipalitySerializer, BarangaySerializer,
     FloodRiskZoneSerializer, FloodAlertSerializer, ThresholdSettingSerializer
 )
 
@@ -153,6 +153,30 @@ def get_severity_name(severity_level):
     }
     return severity_names.get(severity_level, 'Unknown')
 
+class MunicipalityViewSet(viewsets.ReadOnlyModelViewSet):
+    """API endpoint for municipalities"""
+    queryset = Municipality.objects.all()
+    serializer_class = MunicipalitySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Municipality.objects.all()
+        name = self.request.query_params.get('name', None)
+        province = self.request.query_params.get('province', None)
+        is_active = self.request.query_params.get('is_active', None)
+        
+        if name:
+            queryset = queryset.filter(name__icontains=name)
+        
+        if province:
+            queryset = queryset.filter(province__icontains=province)
+        
+        if is_active:
+            is_active_bool = is_active.lower() == 'true'
+            queryset = queryset.filter(is_active=is_active_bool)
+            
+        return queryset
+
 class BarangayViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for barangays"""
     queryset = Barangay.objects.all()
@@ -163,10 +187,14 @@ class BarangayViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = Barangay.objects.all()
         name = self.request.query_params.get('name', None)
         affected = self.request.query_params.get('affected', None)
+        municipality_id = self.request.query_params.get('municipality_id', None)
         
         if name:
             queryset = queryset.filter(name__icontains=name)
         
+        if municipality_id:
+            queryset = queryset.filter(municipality_id=municipality_id)
+            
         if affected and affected.lower() == 'true':
             # Get barangays affected by active alerts
             active_alerts = FloodAlert.objects.filter(active=True)
