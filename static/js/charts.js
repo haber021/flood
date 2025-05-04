@@ -33,6 +33,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('temperature-chart')) {
         initializeCharts();
         
+        // When municipality changes, also update chart data
+        window.addEventListener('municipalityChanged', function(e) {
+            console.log('[Charts] Detected municipality change, updating all charts');
+            // Set a small delay to ensure all components have updated
+            setTimeout(() => {
+                loadChartData('temperature');
+                loadChartData('rainfall');
+                loadChartData('water_level');
+            }, 100);
+        });
+        
         // Setup time period selector
         document.querySelectorAll('.chart-period').forEach(item => {
             item.addEventListener('click', function(e) {
@@ -372,6 +383,37 @@ function loadChartData(sensorType) {
             // Ensure we have valid data
             if (!data.labels || !data.values || data.labels.length === 0) {
                 console.warn(`No chart data available for ${sensorType}`);
+                
+                // If there's a municipality filter, try fetching data without the filter
+                if (window.selectedMunicipality && !window.isRetryFetch) {
+                    console.log(`Retrying ${sensorType} data fetch without municipality filter as fallback`);
+                    window.isRetryFetch = true;
+                    let baseUrl = `/api/chart-data/?type=${sensorType}&days=${chartTimePeriod}`;
+                    
+                    fetch(baseUrl)
+                        .then(response => response.json())
+                        .then(fullData => {
+                            window.isRetryFetch = false;
+                            if (!fullData.labels || !fullData.values || fullData.labels.length === 0) {
+                                chart.data.labels = ['No Data Available'];
+                                chart.data.datasets[0].data = [0];
+                            } else {
+                                chart.data.labels = fullData.labels;
+                                chart.data.datasets[0].data = fullData.values;
+                                console.log(`Updated ${sensorType} chart with ${fullData.labels.length} data points (using global data)`); 
+                            }
+                            chart.update();
+                        })
+                        .catch(error => {
+                            window.isRetryFetch = false;
+                            console.error(`Error loading full ${sensorType} chart data:`, error);
+                            chart.data.labels = ['Error Loading Data'];
+                            chart.data.datasets[0].data = [0];
+                            chart.update();
+                        });
+                    return;
+                }
+                
                 chart.data.labels = ['No Data Available'];
                 chart.data.datasets[0].data = [0];
                 chart.update();
