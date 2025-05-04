@@ -30,6 +30,15 @@ let barangayMarkers = {};
 
 // Map initialization
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if there's a saved municipality preference in sessionStorage
+    const savedMunicipalityId = sessionStorage.getItem('selectedMunicipalityId');
+    const savedBarangayId = sessionStorage.getItem('selectedBarangayId');
+    
+    console.log('[Map] Checking for saved location preferences:', {
+        savedMunicipalityId,
+        savedBarangayId
+    });
+    
     // Initialize the barangays section
     displayMunicipalityBarangays();
     
@@ -37,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const mapContainer = document.getElementById('flood-map');
     if (!mapContainer) return;
     
-    // Initialize the map (centered on Vical, Santa Lucia, Ilocos Sur)
+    // Initialize the map (centered on Vical, Santa Lucia, Ilocos Sur as default)
     floodMap = L.map('flood-map').setView([17.135678, 120.437203], 14);
     
     // Add tile layer (OpenStreetMap)
@@ -53,9 +62,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup controls
     setupMapControls();
     
-    // Load initial data
-    loadMapData();
-    loadMunicipalityData();
+    // Load municipality data first to ensure we have it for filtering
+    loadMunicipalityData().then(() => {
+        // After municipalities are loaded, set the saved selection if available
+        if (savedMunicipalityId) {
+            // Find the municipality from loaded data
+            const municipality = allMunicipalities.find(m => m.id.toString() === savedMunicipalityId);
+            if (municipality) {
+                console.log(`[Map] Restoring saved municipality selection: ${municipality.name}`);
+                window.selectedMunicipality = municipality;
+                
+                // Update the selector UI if it exists
+                const municipalitySelector = document.getElementById('municipality-selector');
+                if (municipalitySelector) {
+                    municipalitySelector.value = savedMunicipalityId;
+                }
+                
+                // If we have a barangay preference, try to load that too
+                if (savedBarangayId) {
+                    // We'll wait for barangays to load and then select it
+                    loadBarangaysForMunicipality(municipality.id);
+                }
+            }
+        }
+        
+        // Now load map data with any filters applied
+        loadMapData();
+    });
     
     // Setup event listeners for municipality selection
     const municipalitySelector = document.getElementById('municipality-selector');
@@ -67,9 +100,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const municipality = allMunicipalities.find(m => m.id.toString() === selectedId);
                 if (municipality) {
                     window.selectedMunicipality = municipality;
+                    // Save user's preference to sessionStorage
+                    sessionStorage.setItem('selectedMunicipalityId', municipality.id);
+                    
                     // Clear barangay selection when municipality changes
                     document.getElementById('barangay-selector').value = '';
                     window.selectedBarangay = null;
+                    sessionStorage.removeItem('selectedBarangayId'); // Clear saved barangay preference
                     resetBarangayHighlights();
                     document.getElementById('focus-selected-barangay').disabled = true;
                     
@@ -81,6 +118,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Auto-adjust map to focus on the selected municipality
                     if (municipality.latitude && municipality.longitude) {
+                        console.log(`[Map] Auto-focusing on municipality: ${municipality.name} at [${municipality.latitude}, ${municipality.longitude}]`);
+                        
                         // Set the map view to the municipality location with appropriate zoom level
                         floodMap.setView([municipality.latitude, municipality.longitude], 13);
                         // Show a temporary marker to highlight the municipality center
@@ -104,6 +143,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         setTimeout(() => {
                             floodMap.removeLayer(marker);
                         }, 3000);
+                    } else {
+                        console.warn(`[Map] Municipality ${municipality.name} is missing coordinates - cannot auto-focus`);
                     }
                     
                     // Trigger all data refresh for the new location
@@ -112,6 +153,10 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Clear selection
                 window.selectedMunicipality = null;
+                // Remove saved preference
+                sessionStorage.removeItem('selectedMunicipalityId');
+                sessionStorage.removeItem('selectedBarangayId');
+                
                 // Show all barangays
                 setupBarangaySelector();
                 // Reset map to default view
@@ -133,6 +178,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const barangay = allBarangays.find(b => b.id.toString() === selectedId);
                 if (barangay) {
                     window.selectedBarangay = barangay;
+                    // Save user's preference to sessionStorage
+                    sessionStorage.setItem('selectedBarangayId', barangay.id);
+                    
                     highlightSelectedBarangay(barangay);
                     document.getElementById('focus-selected-barangay').disabled = false;
                     
@@ -145,6 +193,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Clear selection
                 window.selectedBarangay = null;
+                // Remove saved preference
+                sessionStorage.removeItem('selectedBarangayId');
+                
                 resetBarangayHighlights();
                 document.getElementById('focus-selected-barangay').disabled = true;
                 
@@ -940,30 +991,37 @@ function darkenColor(hex, percent) {
 
 /**
  * Load municipality data from API
+ * @returns {Promise} A promise that resolves when municipalities are loaded
  */
 function loadMunicipalityData() {
-    fetch('/api/municipalities/')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Municipality data received:', data);
-            
-            // Store all municipalities for the selector
-            allMunicipalities = data.results || [];
-            
-            // Update the municipality selector
-            setupMunicipalitySelector();
-            
-            // Preload barangays for all municipalities
-            preloadAllBarangays();
-        })
-        .catch(error => {
-            console.error('Error loading municipality data:', error);
-        });
+    return new Promise((resolve, reject) => {
+        fetch('/api/municipalities/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Municipality data received:', data);
+                
+                // Store all municipalities for the selector
+                allMunicipalities = data.results || [];
+                
+                // Update the municipality selector
+                setupMunicipalitySelector();
+                
+                // Preload barangays for all municipalities
+                preloadAllBarangays();
+                
+                // Resolve the promise to indicate municipalities are loaded
+                resolve(allMunicipalities);
+            })
+            .catch(error => {
+                console.error('Error loading municipality data:', error);
+                reject(error);
+            });
+    });
 }
 
 /**
