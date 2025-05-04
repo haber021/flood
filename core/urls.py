@@ -1,6 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from . import views_database
 
 urlpatterns = [
     # Authentication URLs
@@ -31,4 +32,11 @@ urlpatterns = [
     path('api/map-data/', views.get_map_data, name='get_map_data'),
     path('api/sensor-data/', views.get_latest_sensor_data, name='get_latest_sensor_data'),
     path('api/flood-alerts/', views.get_flood_alerts, name='get_flood_alerts'),
+    
+    # Database Management URLs
+    path('database/', views_database.database_management, name='database_management'),
+    path('database/backup/', views_database.create_backup, name='create_backup'),
+    path('database/restore/', views_database.restore_backup, name='restore_backup'),
+    path('database/download/<str:filename>/', views_database.download_backup, name='download_backup'),
+    path('database/delete/<str:filename>/', views_database.delete_backup, name='delete_backup'),
 ]
