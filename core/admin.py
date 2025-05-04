@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Sensor, SensorData, Barangay, FloodRiskZone, 
+    Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
     FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
 )
 
@@ -16,9 +16,16 @@ class SensorDataAdmin(admin.ModelAdmin):
     list_filter = ('sensor__sensor_type', 'timestamp')
     date_hierarchy = 'timestamp'
 
+@admin.register(Municipality)
+class MunicipalityAdmin(admin.ModelAdmin):
+    list_display = ('name', 'province', 'population', 'contact_person', 'contact_number')
+    list_filter = ('province', 'is_active')
+    search_fields = ('name', 'province', 'contact_person')
+
 @admin.register(Barangay)
 class BarangayAdmin(admin.ModelAdmin):
-    list_display = ('name', 'population', 'contact_person', 'contact_number')
+    list_display = ('name', 'municipality', 'population', 'contact_person', 'contact_number')
+    list_filter = ('municipality',)
     search_fields = ('name', 'contact_person')
 
 @admin.register(FloodRiskZone)

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from core.models import (
-    Sensor, SensorData, Barangay, FloodRiskZone, 
+    Sensor, SensorData, Municipality, Barangay, FloodRiskZone, 
     FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
 )
 
@@ -17,7 +17,14 @@ class SensorDataSerializer(serializers.ModelSerializer):
         model = SensorData
         fields = ['id', 'sensor', 'sensor_name', 'sensor_type', 'value', 'timestamp']
 
+class MunicipalitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Municipality
+        fields = '__all__'
+
 class BarangaySerializer(serializers.ModelSerializer):
+    municipality_name = serializers.ReadOnlyField(source='municipality.name')
+    
     class Meta:
         model = Barangay
         fields = '__all__'

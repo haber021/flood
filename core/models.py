@@ -33,9 +33,31 @@ class SensorData(models.Model):
     def __str__(self):
         return f"{self.sensor.name}: {self.value} ({self.timestamp})"
 
+class Municipality(models.Model):
+    """Model for municipality data"""
+    name = models.CharField(max_length=100)
+    province = models.CharField(max_length=100)
+    population = models.IntegerField()
+    area_sqkm = models.FloatField()
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    contact_person = models.CharField(max_length=100, blank=True, null=True)
+    contact_number = models.CharField(max_length=20, blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.name}, {self.province}"
+    
+    class Meta:
+        verbose_name_plural = "Municipalities"
+
 class Barangay(models.Model):
     """Model for barangay (neighborhood/village) data"""
     name = models.CharField(max_length=100)
+    municipality = models.ForeignKey(Municipality, on_delete=models.CASCADE, related_name='barangays', null=True)
     population = models.IntegerField()
     area_sqkm = models.FloatField()
     latitude = models.FloatField()
