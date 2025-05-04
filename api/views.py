@@ -87,7 +87,7 @@ class SensorDataViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def add_sensor_data(request):
     """API endpoint for adding new sensor data"""
     sensor_id = request.data.get('sensor_id')
@@ -180,7 +180,7 @@ class MunicipalityViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for municipalities"""
     queryset = Municipality.objects.all()
     serializer_class = MunicipalitySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = Municipality.objects.all()
@@ -204,7 +204,7 @@ class BarangayViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for barangays"""
     queryset = Barangay.objects.all()
     serializer_class = BarangaySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = Barangay.objects.all()
@@ -229,7 +229,7 @@ class FloodAlertViewSet(viewsets.ModelViewSet):
     """API endpoint for flood alerts"""
     queryset = FloodAlert.objects.all().order_by('-issued_at')
     serializer_class = FloodAlertSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = FloodAlert.objects.all().order_by('-issued_at')
@@ -261,13 +261,13 @@ class FloodRiskZoneViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for flood risk zones"""
     queryset = FloodRiskZone.objects.all()
     serializer_class = FloodRiskZoneSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 class ThresholdSettingViewSet(viewsets.ModelViewSet):
     """API endpoint for threshold settings"""
     queryset = ThresholdSetting.objects.all()
     serializer_class = ThresholdSettingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def perform_create(self, serializer):
         serializer.save(last_updated_by=self.request.user)
@@ -276,7 +276,7 @@ class ThresholdSettingViewSet(viewsets.ModelViewSet):
         serializer.save(last_updated_by=self.request.user)
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def compare_prediction_algorithms(request):
     """API endpoint for comparing predictions from different ML algorithms"""
     
@@ -485,7 +485,7 @@ def compare_prediction_algorithms(request):
     })
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def flood_prediction(request):
     """API endpoint for flood prediction based on real-time sensor data using ML models"""
     
