@@ -113,7 +113,7 @@ function initializeHistoricalChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            aspectRatio: 3, // Flatter aspect ratio like in the drawing
+            // Remove fixed aspectRatio to allow container-based sizing
             scales: {
                 y: {
                     beginAtZero: false,
