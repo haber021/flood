@@ -167,6 +167,10 @@ function checkActiveAlerts() {
             const alertsContainer = document.getElementById('alerts-list');
             const noAlertsElement = document.getElementById('no-alerts');
             
+            // Affected barangays elements
+            const affectedBarangaysContainer = document.getElementById('affected-barangays-list');
+            const noAffectedBarangaysElement = document.getElementById('no-affected-barangays');
+            
             if (data.results && data.results.length > 0) {
                 // We have active alerts
                 alertsContainer.classList.remove('d-none');
@@ -179,6 +183,11 @@ function checkActiveAlerts() {
                 
                 // Update alerts list
                 let alertsHtml = '';
+                let affectedBarangaysSet = new Set(); // Track unique affected barangays
+                
+                // Map to store barangay details for later use
+                let barangayDetails = {};
+                
                 alerts.forEach(alert => {
                     // Determine alert color based on severity
                     let alertClass = 'alert-info';
@@ -209,6 +218,24 @@ function checkActiveAlerts() {
                     
                     // Format the date
                     const issuedDate = new Date(alert.issued_at).toLocaleString();
+                    
+                    // Add affected barangays to set and store alert severity
+                    if (alert.affected_barangays && alert.affected_barangays.length > 0) {
+                        alert.affected_barangays.forEach(barangayId => {
+                            affectedBarangaysSet.add(barangayId);
+                            
+                            // Keep track of highest severity for this barangay
+                            if (!barangayDetails[barangayId] || 
+                                alert.severity_level > barangayDetails[barangayId].severity_level) {
+                                barangayDetails[barangayId] = {
+                                    severity_level: alert.severity_level,
+                                    alert_title: alert.title,
+                                    severity_text: severityText,
+                                    alert_class: alertClass
+                                };
+                            }
+                        });
+                    }
                     
                     // Build the HTML for this alert
                     alertsHtml += `
@@ -246,6 +273,71 @@ function checkActiveAlerts() {
                     setInterval(() => updateCountdown(timer, targetTime), 1000);
                 });
                 
+                // Now handle the affected barangays section
+                if (affectedBarangaysSet.size > 0) {
+                    // We have affected barangays
+                    if (affectedBarangaysContainer) {
+                        affectedBarangaysContainer.classList.remove('d-none');
+                    }
+                    if (noAffectedBarangaysElement) {
+                        noAffectedBarangaysElement.classList.add('d-none');
+                    }
+                    
+                    // Fetch barangay details
+                    fetch('/api/barangays/')
+                        .then(response => response.json())
+                        .then(barangayData => {
+                            if (barangayData.results && barangayData.results.length > 0) {
+                                const barangays = barangayData.results;
+                                let barangayCardsHtml = '';
+                                
+                                // Filter to affected barangays and create cards
+                                barangays.forEach(barangay => {
+                                    if (affectedBarangaysSet.has(barangay.id)) {
+                                        const details = barangayDetails[barangay.id];
+                                        
+                                        barangayCardsHtml += `
+                                            <div class="col-md-4 mb-3">
+                                                <div class="card">
+                                                    <div class="card-header ${details.alert_class} text-white">
+                                                        <h5 class="mb-0">${barangay.name}</h5>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <p><strong>Alert Level:</strong> ${details.severity_text}</p>
+                                                        <p><strong>Alert:</strong> ${details.alert_title}</p>
+                                                        <p><strong>Population:</strong> ${barangay.population.toLocaleString()}</p>
+                                                        <p><strong>Contact:</strong> ${barangay.contact_person || 'N/A'}</p>
+                                                        <p><strong>Phone:</strong> ${barangay.contact_number || 'N/A'}</p>
+                                                    </div>
+                                                    <div class="card-footer text-center">
+                                                        <button class="btn btn-sm btn-outline-primary" onclick="highlightBarangay(${barangay.id})">
+                                                            <i class="fas fa-map-marker-alt me-1"></i> Show on Map
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }
+                                });
+                                
+                                // Update the barangay cards container
+                                document.getElementById('barangay-cards').innerHTML = barangayCardsHtml;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching barangay data:', error);
+                        });
+                    
+                } else {
+                    // No affected barangays
+                    if (affectedBarangaysContainer) {
+                        affectedBarangaysContainer.classList.add('d-none');
+                    }
+                    if (noAffectedBarangaysElement) {
+                        noAffectedBarangaysElement.classList.remove('d-none');
+                    }
+                }
+                
                 // Update alert status display
                 updateAlertStatus(alerts[0]);
             } else {
@@ -255,6 +347,14 @@ function checkActiveAlerts() {
                 }
                 if (noAlertsElement) {
                     noAlertsElement.classList.remove('d-none');
+                }
+                
+                // Also clear affected barangays section
+                if (affectedBarangaysContainer) {
+                    affectedBarangaysContainer.classList.add('d-none');
+                }
+                if (noAffectedBarangaysElement) {
+                    noAffectedBarangaysElement.classList.remove('d-none');
                 }
                 
                 // Update alert status to normal

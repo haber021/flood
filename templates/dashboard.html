@@ -252,7 +252,7 @@
     </div>
     
     <!-- Flood Alerts Section -->
-    <div class="row">
+    <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
@@ -270,6 +270,34 @@
                         
                         <div id="alerts-list" class="d-none">
                             <!-- Alerts will be populated here by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Affected Barangays Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>Barangays Affected by Floods
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="affected-barangays-container">
+                        <div class="text-center py-4 text-muted" id="no-affected-barangays">
+                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                            <h5>No barangays currently affected</h5>
+                            <p>There are no areas currently affected by flood alerts.</p>
+                        </div>
+                        
+                        <div id="affected-barangays-list" class="d-none">
+                            <div class="row" id="barangay-cards">
+                                <!-- Barangay cards will be populated here by JavaScript -->
+                            </div>
                         </div>
                     </div>
                 </div>
