@@ -258,7 +258,8 @@ def config_page(request):
     return render(request, 'config.html', context)
 
 def get_chart_data(request):
-    """API endpoint to get chart data for the dashboard"""
+    """API endpoint to get chart data for the dashboard (no login required)"""
+    # This API endpoint is accessible without login for charts visualization
     chart_type = request.GET.get('type', 'temperature')
     days = int(request.GET.get('days', 1))
     historical = request.GET.get('historical', 'false').lower() == 'true'
