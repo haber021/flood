@@ -184,6 +184,7 @@ function createChart(canvasId, label, colors) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            devicePixelRatio: 2, // Higher quality rendering
             animation: {
                 duration: 750, // General animation duration
                 easing: 'easeOutQuart'
@@ -209,11 +210,12 @@ function createChart(canvasId, label, colors) {
             },
             layout: {
                 padding: {
-                    left: 10,
-                    right: 20,
-                    top: 20,
-                    bottom: 10
-                }
+                    left: 15,
+                    right: 25,
+                    top: 30,
+                    bottom: 15
+                },
+                autoPadding: true
             },
             scales: {
                 y: {
