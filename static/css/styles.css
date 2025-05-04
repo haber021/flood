@@ -370,6 +370,30 @@ body {
         padding-left: 1.5rem;
         padding-right: 1.5rem;
     }
+    
+    /* Optimize barangay cards layout for wide screens */
+    #municipality-barangay-cards .col-md-4,
+    #barangay-cards .col-md-4 {
+        flex: 0 0 auto;
+        width: 33.33333%;
+    }
+    
+    /* For ultra-wide screens, show more cards per row */
+    @media (min-width: 1800px) {
+        #municipality-barangay-cards .col-md-4,
+        #barangay-cards .col-md-4 {
+            flex: 0 0 auto;
+            width: 25%;
+        }
+    }
+    
+    @media (min-width: 2200px) {
+        #municipality-barangay-cards .col-md-4,
+        #barangay-cards .col-md-4 {
+            flex: 0 0 auto;
+            width: 20%;
+        }
+    }
 }
 
 .responsive-chart canvas {
