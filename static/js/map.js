@@ -520,7 +520,7 @@ function displayMunicipalityBarangays() {
                                 ${barangay.contact_number ? `<p><strong>Phone:</strong> ${barangay.contact_number}</p>` : ''}
                             </div>
                             <div class="card-footer">
-                                <button class="btn btn-sm btn-primary w-100" onclick="highlightBarangay(${barangay.id})">
+                                <button class="btn btn-sm btn-primary w-100" onclick="highlightBarangay(${parseInt(barangay.id)})">
                                     <i class="fas fa-map-marker-alt me-1"></i> Show on Map
                                 </button>
                             </div>
@@ -904,6 +904,29 @@ function resetBarangayHighlights() {
             barangaysLayer.removeLayer(marker._pulsingCircle);
             marker._pulsingCircle = null;
         }
+    }
+}
+
+/**
+ * Highlight a barangay on the map when clicking the Show on Map button in the card
+ */
+function highlightBarangay(barangayId) {
+    // Find the barangay by ID
+    const barangay = allBarangays.find(b => b.id === barangayId);
+    if (!barangay) return;
+    
+    // Set it as the selected barangay in the dropdown
+    const barangaySelector = document.getElementById('barangay-selector');
+    if (barangaySelector) {
+        barangaySelector.value = barangayId;
+        
+        // Trigger the change event to update global selection
+        const event = new Event('change');
+        barangaySelector.dispatchEvent(event);
+    } else {
+        // If dropdown doesn't exist, set the global directly and focus
+        window.selectedBarangay = barangay;
+        focusOnBarangay(barangay);
     }
 }
 
