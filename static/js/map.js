@@ -420,8 +420,15 @@ function generateHeatmap() {
     // Get data from barangays and sensors
     const heatPoints = [];
     
+    // Filter barangays based on selected municipality if applicable
+    let filteredBarangays = [...allBarangays];
+    if (window.selectedMunicipality) {
+        filteredBarangays = allBarangays.filter(barangay => 
+            barangay.municipality_id === parseInt(window.selectedMunicipality.id));
+    }
+    
     // Add points from barangays with severity as intensity
-    allBarangays.forEach(barangay => {
+    filteredBarangays.forEach(barangay => {
         // Intensity based on severity (0-5 scale) and population (for radius)
         const intensity = barangay.severity > 0 ? barangay.severity * 5 : 1;
         // Population factor for radius - larger populations = larger affected area
@@ -845,12 +852,31 @@ function refreshAllDataForNewLocation() {
         display.textContent = locationText;
     });
     
+    // Set a global flag that can be detected by other components
+    window.locationChanged = true;
+    
     // Refresh map data with location filters
     console.log('Refreshing map with location filters...');
     loadMapData();
     
+    // Load barangays for the selected municipality if not already loaded
+    if (window.selectedMunicipality && !loadedMunicipalityBarangays.includes(parseInt(window.selectedMunicipality.id))) {
+        loadBarangaysForMunicipality(window.selectedMunicipality.id);
+    }
+    
     // Display barangays for the selected municipality
     displayMunicipalityBarangays();
+    
+    // Update the active layers based on current map mode
+    if (activeMapMode === 'heatmap') {
+        generateHeatmap();
+    } else if (activeMapMode === 'risk-zones') {
+        // Risk zones are already refreshed by loadMapData
+        // Just ensure they're visible
+        if (!floodMap.hasLayer(riskZonesLayer)) {
+            floodMap.addLayer(riskZonesLayer);
+        }
+    }
     
     // Trigger dashboard chart updates if we're on the dashboard
     if (typeof updateAllCharts === 'function') {
