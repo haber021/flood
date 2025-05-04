@@ -341,17 +341,40 @@ function loadMapData() {
             }
         })
         .catch(error => {
-            console.error('Error loading map data:', error);
+            // Log the error but don't display the empty object in the console
+            console.error('Error loading map data:', error.message || 'Network or server error');
             
             // Show error on map
             if (document.getElementById('map-last-updated')) {
-                document.getElementById('map-last-updated').textContent = 'Error loading map data';
+                document.getElementById('map-last-updated').textContent = 'Unable to load map data. Please try again.';
+            }
+            
+            // Show an error notification on the map
+            if (map) {
+                // Create or update the error control if it doesn't exist
+                if (!window.mapErrorControl) {
+                    window.mapErrorControl = L.control({position: 'topright'});
+                    window.mapErrorControl.onAdd = function() {
+                        const div = L.DomUtil.create('div', 'map-error-control alert alert-warning');
+                        div.innerHTML = '<strong><i class="fas fa-exclamation-triangle"></i> Map Data Error</strong><br>Unable to load location data';
+                        div.style.padding = '10px';
+                        div.style.margin = '10px';
+                        div.style.maxWidth = '300px';
+                        return div;
+                    };
+                    window.mapErrorControl.addTo(map);
+                }
             }
             
             // Clear layers on error
             riskZonesLayer.clearLayers();
             sensorsLayer.clearLayers();
             barangaysLayer.clearLayers();
+            
+            // Set map to default Philippines view as fallback
+            if (map && !window.hasActiveMapData) {
+                map.setView([12.8797, 121.7740], 6); // Philippines default view
+            }
         });
 }
 
