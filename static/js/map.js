@@ -592,16 +592,94 @@ function updateMapView(data) {
  * Refresh all data for a new location
  * This centralizes data refreshing when location changes
  */
+function refreshAllDataForNewLocation() {
+    console.log('========== LOCATION CHANGE DETECTED ==========');
+    console.log('Refreshing all data for new location filter:');
+    console.log('Selected Municipality:', window.selectedMunicipality ? 
+        `${window.selectedMunicipality.name} (ID: ${window.selectedMunicipality.id})` : 'All Municipalities');
+    console.log('Selected Barangay:', window.selectedBarangay ? 
+        `${window.selectedBarangay.name} (ID: ${window.selectedBarangay.id})` : 'All Barangays');
+    console.log('============================================');
+    
+    // Update any UI location displays
+    const locationDisplays = document.querySelectorAll('#current-location-display');
+    locationDisplays.forEach(display => {
+        let locationText = 'All Areas';
+        
+        if (window.selectedMunicipality) {
+            locationText = window.selectedMunicipality.name;
+            
+            if (window.selectedBarangay) {
+                locationText += ' > ' + window.selectedBarangay.name;
+            }
+        }
+        
+        display.textContent = locationText;
+    });
+    
+    // Refresh map data with location filters
+    console.log('Refreshing map with location filters...');
+    loadMapData();
+    
+    // Display barangays for the selected municipality
+    displayMunicipalityBarangays();
+    
+    // Trigger dashboard chart updates if we're on the dashboard
+    if (typeof updateAllCharts === 'function') {
+        console.log('Updating all charts with new location data...');
+        updateAllCharts();
+    }
+    
+    // Update prediction data if we're on the prediction page
+    if (typeof updatePredictionModel === 'function') {
+        console.log('Updating prediction model with new location data...');
+        updatePredictionModel();
+    }
+    
+    // Update any other location-specific data
+    // For example, refresh alerts
+    const alertsContainer = document.getElementById('alerts-container');
+    if (alertsContainer) {
+        if (typeof loadActiveAlerts === 'function') {
+            console.log('Updating alerts with new location data');
+            loadActiveAlerts();
+        }
+    }
+    
+    // Update sensor data if we're on the dashboard
+    if (typeof updateSensorData === 'function') {
+        console.log('Updating sensor data with new location data...');
+        updateSensorData();
+    }
+    
+    // Update active alerts (for all pages that have them)
+    if (typeof checkActiveAlerts === 'function') {
+        console.log('Updating active alerts with new location data...');
+        checkActiveAlerts();
+    }
+    
+    // Set a global indication that the location has changed (for other components to check)
+    window.locationChanged = true;
+    
+    // Reset the flag after a brief delay (giving components time to check)
+    setTimeout(() => {
+        window.locationChanged = false;
+    }, 500);
+}
+
 /**
  * Load all barangays for a specific municipality ID 
  */
 function loadBarangaysForMunicipality(municipalityId) {
     if (!municipalityId) return;
     
+    // Convert to integer for consistent comparison
+    const municipalityIdInt = parseInt(municipalityId);
+    
     // Check if we've already loaded barangays for this municipality to avoid duplicate requests
-    if (loadedMunicipalityBarangays.includes(parseInt(municipalityId))) {
+    if (loadedMunicipalityBarangays.includes(municipalityIdInt)) {
         console.log(`[Barangays] Already loaded barangays for municipality ID ${municipalityId}, using cached data`);
-        displayMunicipalityBarangays();
+        // Do NOT call displayMunicipalityBarangays() here to avoid potential circular calls
         return;
     }
 
@@ -674,15 +752,21 @@ function displayMunicipalityBarangays() {
     noMunicipalitySelectedDiv.classList.add('d-none');
     municipalityBarangaysList.classList.remove('d-none');
     
+    // Convert to integer for consistent comparison
+    const municipalityIdInt = parseInt(window.selectedMunicipality.id);
+    
     // Filter the already loaded barangays for this municipality
     const municipalityBarangays = allBarangays.filter(
-        b => b.municipality_id === window.selectedMunicipality.id
+        b => b.municipality_id === municipalityIdInt
     );
     
     if (municipalityBarangays.length === 0) {
-        // If we don't have any barangays for this municipality yet, load them
-        loadBarangaysForMunicipality(window.selectedMunicipality.id);
-        return;
+        // Check if we've already tried to load this municipality's barangays
+        if (!loadedMunicipalityBarangays.includes(municipalityIdInt)) {
+            // If we don't have any barangays for this municipality yet, load them
+            loadBarangaysForMunicipality(municipalityIdInt);
+            return;
+        }
     }
             
     console.log(`[Municipal Barangays] Displaying ${municipalityBarangays.length} barangays for ${window.selectedMunicipality.name}`);
