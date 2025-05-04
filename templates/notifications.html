@@ -149,8 +149,18 @@
                             <div class="border rounded p-3">
                                 <h3 class="fw-bold text-success" id="delivery-rate">
                                     {% if notifications %}
-                                        {% with delivered=notifications|selectattr:"status"|selectattr:"delivered"|list|length %}
-                                        {{ delivered|floatformat:1 }}%
+                                        {% with delivered_count=0 %}
+                                            {% for notification in notifications %}
+                                                {% if notification.status == 'delivered' %}
+                                                    {% with delivered_count=delivered_count|add:1 %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if notifications.count > 0 %}
+                                                {{ delivered_count|floatformat:0 }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
                                         {% endwith %}
                                     {% else %}
                                         0%
