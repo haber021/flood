@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.db.models import Max, Avg, Sum, Q, Count, Min
 import math
 import logging
+import requests
 from datetime import timedelta
 
 # Import ML model functions
@@ -1095,3 +1096,71 @@ def get_map_data(request):
         'zones': zone_data,
         'barangays': barangay_data
     })
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def get_all_barangays(request):
+    """API endpoint for retrieving all barangays within a municipality without pagination
+    
+    This endpoint returns a comprehensive list of all barangays in a specific municipality
+    with population data, with no pagination limits, making it ideal for map displays and dropdowns.
+    
+    Query Parameters:
+        municipality_id: Filter barangays to a specific municipality
+    """
+    municipality_id = request.GET.get('municipality_id', None)
+    
+    if not municipality_id:
+        return Response(
+            {'error': 'municipality_id parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Validate the municipality exists
+        municipality = Municipality.objects.get(id=municipality_id)
+        
+        # Get all barangays for this municipality
+        barangays = Barangay.objects.filter(municipality_id=municipality_id)
+        
+        # Prepare the response with all barangay details
+        barangay_data = []
+        for barangay in barangays:
+            barangay_info = {
+                'id': barangay.id,
+                'name': barangay.name,
+                'municipality_id': barangay.municipality_id,
+                'municipality_name': municipality.name,
+                'population': barangay.population,
+                'contact_person': barangay.contact_person,
+                'contact_number': barangay.contact_number,
+                'latitude': barangay.latitude,
+                'longitude': barangay.longitude,
+            }
+            barangay_data.append(barangay_info)
+        
+        # Sort alphabetically by name for consistent display
+        barangay_data.sort(key=lambda x: x['name'])
+        
+        # Return the comprehensive data
+        return Response({
+            'municipality': {
+                'id': municipality.id,
+                'name': municipality.name,
+                'province': municipality.province
+            },
+            'barangays': barangay_data,
+            'count': len(barangay_data)
+        })
+    
+    except Municipality.DoesNotExist:
+        return Response(
+            {'error': f'Municipality with ID {municipality_id} not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving barangays: {str(e)}")
+        return Response(
+            {'error': 'An error occurred while retrieving barangay data'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

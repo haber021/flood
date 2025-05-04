@@ -18,4 +18,5 @@ urlpatterns = [
     path('prediction/', views.flood_prediction, name='flood_prediction'),
     path('compare-algorithms/', views.compare_prediction_algorithms, name='compare_algorithms'),
     path('map-data/', views.get_map_data, name='get_map_data'),
+    path('all-barangays/', views.get_all_barangays, name='get_all_barangays'),
 ]
