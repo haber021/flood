@@ -560,6 +560,10 @@ def main():
         logger.info("\nTraining and evaluating spatial models...")
         spatial_results = train_and_evaluate_spatial_models(historical_data)
         
+        # Train and evaluate optimization algorithms
+        logger.info("\nTraining and evaluating optimization algorithms...")
+        optimization_results = train_and_evaluate_optimization_algorithms(historical_data)
+        
         # Plot comparison results
         plot_comparison_results(classification_results, time_series_results)
         
@@ -572,6 +576,16 @@ def main():
         logger.info("\nTime Series Models:")
         for model, metrics in time_series_results.items():
             logger.info(f"{model}: MAE={metrics['mae']:.4f}, RMSE={metrics['rmse']:.4f}")
+            
+        logger.info("\nOptimization Algorithm Results:")
+        if 'MCDA' in optimization_results:
+            mcda_result = optimization_results['MCDA']
+            logger.info(f"MCDA - Best Route: {mcda_result['best_route']} with score {mcda_result['best_score']:.4f}")
+        
+        if 'DTW' in optimization_results:
+            dtw_result = optimization_results['DTW']
+            logger.info(f"DTW - Most Similar Pattern: {dtw_result['most_similar_pattern']} ")
+            logger.info(f"     Pattern Details: {dtw_result['pattern_metadata']['description']}")
         
     except Exception as e:
         logger.error(f"Error during model training: {str(e)}")
