@@ -148,6 +148,7 @@
                             <button type="button" class="btn btn-light active" id="btn-risk-zones">Risk Zones</button>
                             <button type="button" class="btn btn-light" id="btn-sensors">Sensors</button>
                             <button type="button" class="btn btn-light" id="btn-barangays">Barangays</button>
+                            <button type="button" class="btn btn-light" id="btn-heatmap">Heatmap</button>
                         </div>
                     </div>
                 </div>
@@ -191,10 +192,17 @@
                 <div class="card-footer">
                     <div class="row">
                         <div class="col-md-6">
-                            <div class="map-legend">
+                            <div class="map-legend" id="risk-zones-legend">
                                 <span class="me-3"><i class="fas fa-circle text-success me-1"></i> Low Risk</span>
                                 <span class="me-3"><i class="fas fa-circle text-warning me-1"></i> Medium Risk</span>
                                 <span class="me-3"><i class="fas fa-circle text-danger me-1"></i> High Risk</span>
+                            </div>
+                            <div class="map-legend d-none" id="heatmap-legend">
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2">Intensity:</span>
+                                    <div class="heatmap-gradient me-1" style="width: 150px; height: 10px; background: linear-gradient(to right, rgba(0,255,255,0.7), #00ffff, #0088ff, #0000ff, #8800ff, #ff00ff, #ff0088, #ff0000);"></div>
+                                    <span class="ms-1">High</span>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6 text-md-end">

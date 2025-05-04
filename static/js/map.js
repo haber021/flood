@@ -10,6 +10,7 @@ let floodMap;
 let riskZonesLayer;
 let sensorsLayer;
 let barangaysLayer;
+let heatmapLayer;
 
 // Active view mode
 let activeMapMode = 'risk-zones';
@@ -58,6 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
     riskZonesLayer = L.layerGroup().addTo(floodMap);
     sensorsLayer = L.layerGroup();
     barangaysLayer = L.layerGroup();
+    heatmapLayer = L.layerGroup();
     
     // Setup controls
     setupMapControls();
@@ -243,6 +245,10 @@ function setupMapControls() {
     document.getElementById('btn-barangays').addEventListener('click', function() {
         setMapMode('barangays');
     });
+    
+    document.getElementById('btn-heatmap').addEventListener('click', function() {
+        setMapMode('heatmap');
+    });
 }
 
 /**
@@ -250,7 +256,7 @@ function setupMapControls() {
  */
 function setMapMode(mode) {
     // Update active button
-    document.querySelectorAll('#btn-risk-zones, #btn-sensors, #btn-barangays').forEach(btn => {
+    document.querySelectorAll('#btn-risk-zones, #btn-sensors, #btn-barangays, #btn-heatmap').forEach(btn => {
         if (btn) btn.classList.remove('active');
     });
     const activeBtn = document.getElementById(`btn-${mode}`);
@@ -264,15 +270,31 @@ function setMapMode(mode) {
     floodMap.removeLayer(sensorsLayer);
     floodMap.removeLayer(barangaysLayer);
     
+    // Remove heatmap layer if it exists
+    if (heatmapLayer) {
+        floodMap.removeLayer(heatmapLayer);
+    }
+    
+    // Toggle appropriate legend
+    document.getElementById('risk-zones-legend').classList.add('d-none');
+    document.getElementById('heatmap-legend').classList.add('d-none');
+    
     switch(mode) {
         case 'risk-zones':
             floodMap.addLayer(riskZonesLayer);
+            document.getElementById('risk-zones-legend').classList.remove('d-none');
             break;
         case 'sensors':
             floodMap.addLayer(sensorsLayer);
+            document.getElementById('risk-zones-legend').classList.remove('d-none');
             break;
         case 'barangays':
             floodMap.addLayer(barangaysLayer);
+            document.getElementById('risk-zones-legend').classList.remove('d-none');
+            break;
+        case 'heatmap':
+            generateHeatmap();
+            document.getElementById('heatmap-legend').classList.remove('d-none');
             break;
     }
 }
@@ -340,6 +362,11 @@ function loadMapData() {
             if (document.getElementById('map-last-updated')) {
                 document.getElementById('map-last-updated').textContent = new Date().toLocaleString();
             }
+            
+            // Update heatmap if it's active
+            if (activeMapMode === 'heatmap') {
+                generateHeatmap();
+            }
         })
         .catch(error => {
             // Log the error but don't display the empty object in the console
@@ -377,6 +404,183 @@ function loadMapData() {
                 floodMap.setView([12.8797, 121.7740], 6); // Philippines default view
             }
         });
+}
+
+/**
+ * Generate heatmap based on flood risk data
+ */
+function generateHeatmap() {
+    // Clear any existing heatmap layer
+    if (heatmapLayer) {
+        floodMap.removeLayer(heatmapLayer);
+    }
+    
+    console.log('[Heatmap] Generating flood risk heatmap');
+    
+    // Get data from barangays and sensors
+    const heatPoints = [];
+    
+    // Add points from barangays with severity as intensity
+    allBarangays.forEach(barangay => {
+        // Intensity based on severity (0-5 scale) and population (for radius)
+        const intensity = barangay.severity > 0 ? barangay.severity * 5 : 1;
+        // Population factor for radius - larger populations = larger affected area
+        const populationFactor = Math.sqrt(barangay.population) / 20;
+        // Create multiple points around the barangay center for radial effect
+        const radius = Math.max(populationFactor, 1) * 500; // Radius in meters
+        
+        // Add the center point with highest intensity
+        heatPoints.push([
+            barangay.lat, 
+            barangay.lng, 
+            intensity * 3 // Center point has higher intensity
+        ]);
+        
+        // Add surrounding points with decreasing intensity (radial pattern)
+        const numPoints = Math.min(Math.max(barangay.severity, 1) * 5, 20);
+        for (let i = 0; i < numPoints; i++) {
+            // Calculate points in a circle around the barangay
+            const angle = (i / numPoints) * 2 * Math.PI;
+            const distance = (radius / 1000) * (0.5 + Math.random() * 0.5); // Random distance within radius
+            
+            // Convert polar coordinates to latitude/longitude offset
+            // Approximate conversion: 111,111 meters = 1 degree latitude
+            // Longitude conversion varies with latitude
+            const latOffset = distance * Math.cos(angle) / 111.111;
+            const lngOffset = distance * Math.sin(angle) / (111.111 * Math.cos(barangay.lat * (Math.PI / 180)));
+            
+            // Add point with intensity based on distance from center
+            const pointIntensity = intensity * (1 - (0.7 * Math.random()));
+            heatPoints.push([barangay.lat + latOffset, barangay.lng + lngOffset, pointIntensity]);
+        }
+    });
+    
+    // Add points from water level sensors
+    const waterSensors = sensorsLayer.getLayers()
+        .filter(layer => {
+            const popup = layer.getPopup();
+            return popup && popup._content.includes('Type: Water Level');
+        });
+    
+    waterSensors.forEach(sensor => {
+        const latLng = sensor.getLatLng();
+        const popupContent = sensor.getPopup()._content;
+        
+        // Extract value from popup content
+        const valueMatch = popupContent.match(/Value: ([\d.]+)\s/); 
+        if (valueMatch && valueMatch[1]) {
+            const value = parseFloat(valueMatch[1]);
+            // Water level above 0.5m starts to get concerning
+            const intensity = value > 0.5 ? (value * 10) : 0;
+            
+            if (intensity > 0) {
+                // Add the center point
+                heatPoints.push([latLng.lat, latLng.lng, intensity * 2]);
+                
+                // Add points around the sensor for a radial effect
+                const radius = value * 200; // Radius proportional to water level
+                const numPoints = Math.min(Math.max(value * 10, 3), 15);
+                
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * 2 * Math.PI;
+                    const distance = (radius / 1000) * (0.5 + Math.random() * 0.5);
+                    
+                    const latOffset = distance * Math.cos(angle) / 111.111;
+                    const lngOffset = distance * Math.sin(angle) / (111.111 * Math.cos(latLng.lat * (Math.PI / 180)));
+                    
+                    // Decrease intensity with distance
+                    const pointIntensity = intensity * (1 - (0.8 * Math.random()));
+                    heatPoints.push([latLng.lat + latOffset, latLng.lng + lngOffset, pointIntensity]);
+                }
+            }
+        }
+    });
+    
+    // Add points from rainfall sensors
+    const rainfallSensors = sensorsLayer.getLayers()
+        .filter(layer => {
+            const popup = layer.getPopup();
+            return popup && popup._content.includes('Type: Rainfall');
+        });
+    
+    rainfallSensors.forEach(sensor => {
+        const latLng = sensor.getLatLng();
+        const popupContent = sensor.getPopup()._content;
+        
+        // Extract value from popup content
+        const valueMatch = popupContent.match(/Value: ([\d.]+)\s/);
+        if (valueMatch && valueMatch[1]) {
+            const value = parseFloat(valueMatch[1]);
+            // Rainfall above 10mm starts to get concerning
+            const intensity = value > 10 ? (value / 5) : 0;
+            
+            if (intensity > 0) {
+                // Add center point
+                heatPoints.push([latLng.lat, latLng.lng, intensity * 2]);
+                
+                // Add surrounding points
+                const radius = value * 100; // Radius proportional to rainfall
+                const numPoints = Math.min(Math.max(value / 5, 3), 15);
+                
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * 2 * Math.PI;
+                    const distance = (radius / 1000) * (0.5 + Math.random() * 0.5);
+                    
+                    const latOffset = distance * Math.cos(angle) / 111.111;
+                    const lngOffset = distance * Math.sin(angle) / (111.111 * Math.cos(latLng.lat * (Math.PI / 180)));
+                    
+                    // Decrease intensity with distance
+                    const pointIntensity = intensity * (1 - (0.8 * Math.random()));
+                    heatPoints.push([latLng.lat + latOffset, latLng.lng + lngOffset, pointIntensity]);
+                }
+            }
+        }
+    });
+    
+    console.log(`[Heatmap] Generated ${heatPoints.length} heatmap points`);
+    
+    // Create the heat layer
+    if (heatPoints.length > 0) {
+        // Configure the heat layer
+        const heatLayerConfig = {
+            radius: 25,
+            blur: 15,
+            maxZoom: 17,
+            max: 30, // Maximum intensity value
+            gradient: {
+                0.0: 'rgba(0,255,255,0)',  // Transparent at lowest values
+                0.2: '#00ffff', // Cyan
+                0.4: '#0088ff', // Light blue
+                0.6: '#0000ff', // Blue
+                0.7: '#8800ff', // Purple
+                0.8: '#ff00ff', // Magenta
+                0.9: '#ff0088', // Pink
+                1.0: '#ff0000'  // Red at highest values
+            }
+        };
+        
+        // Create the heat layer and add it to the map
+        heatmapLayer = L.heatLayer(heatPoints, heatLayerConfig).addTo(floodMap);
+        console.log('[Heatmap] Heatmap layer added to map');
+    } else {
+        console.log('[Heatmap] No heatmap points available');
+        // Show a message on the map
+        const noDataControl = L.control({position: 'topright'});
+        noDataControl.onAdd = function() {
+            const div = L.DomUtil.create('div', 'map-error-control alert alert-info');
+            div.innerHTML = '<strong><i class="fas fa-info-circle"></i> No Heatmap Data</strong><br>No flood risk data available for heatmap visualization';
+            div.style.padding = '10px';
+            div.style.margin = '10px';
+            div.style.maxWidth = '300px';
+            return div;
+        };
+        noDataControl.addTo(floodMap);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            floodMap.removeControl(noDataControl);
+        }, 3000);
+    }
 }
 
 /**
