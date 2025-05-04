@@ -354,127 +354,127 @@ function checkActiveAlerts() {
  * Process alerts data and update UI
  */
 function processAlertsData(data) {
-            const alertsContainer = document.getElementById('alerts-list');
-            const noAlertsElement = document.getElementById('no-alerts');
+    const alertsContainer = document.getElementById('alerts-list');
+    const noAlertsElement = document.getElementById('no-alerts');
+    
+    // Affected barangays elements
+    const affectedBarangaysContainer = document.getElementById('affected-barangays-list');
+    const noAffectedBarangaysElement = document.getElementById('no-affected-barangays');
+    
+    if (data.results && data.results.length > 0) {
+        // We have active alerts
+        alertsContainer.classList.remove('d-none');
+        if (noAlertsElement) {
+            noAlertsElement.classList.add('d-none');
+        }
+        
+        // Sort alerts by severity (highest first)
+        const alerts = data.results.sort((a, b) => b.severity_level - a.severity_level);
+        
+        // Update alerts list
+        let alertsHtml = '';
+        let affectedBarangaysSet = new Set(); // Track unique affected barangays
+        
+        // Map to store barangay details for later use
+        let barangayDetails = {};
+        
+        alerts.forEach(alert => {
+            // Determine alert color based on severity
+            let alertClass = 'alert-info';
+            let severityText = 'Advisory';
             
-            // Affected barangays elements
-            const affectedBarangaysContainer = document.getElementById('affected-barangays-list');
-            const noAffectedBarangaysElement = document.getElementById('no-affected-barangays');
+            switch (alert.severity_level) {
+                case 5:
+                    alertClass = 'alert-danger';
+                    severityText = 'CATASTROPHIC';
+                    break;
+                case 4:
+                    alertClass = 'alert-danger';
+                    severityText = 'EMERGENCY';
+                    break;
+                case 3:
+                    alertClass = 'alert-warning';
+                    severityText = 'WARNING';
+                    break;
+                case 2:
+                    alertClass = 'alert-warning';
+                    severityText = 'WATCH';
+                    break;
+                case 1:
+                    alertClass = 'alert-info';
+                    severityText = 'ADVISORY';
+                    break;
+            }
             
-            if (data.results && data.results.length > 0) {
-                // We have active alerts
-                alertsContainer.classList.remove('d-none');
-                if (noAlertsElement) {
-                    noAlertsElement.classList.add('d-none');
-                }
-                
-                // Sort alerts by severity (highest first)
-                const alerts = data.results.sort((a, b) => b.severity_level - a.severity_level);
-                
-                // Update alerts list
-                let alertsHtml = '';
-                let affectedBarangaysSet = new Set(); // Track unique affected barangays
-                
-                // Map to store barangay details for later use
-                let barangayDetails = {};
-                
-                alerts.forEach(alert => {
-                    // Determine alert color based on severity
-                    let alertClass = 'alert-info';
-                    let severityText = 'Advisory';
+            // Format the date
+            const issuedDate = new Date(alert.issued_at).toLocaleString();
+            
+            // Add affected barangays to set and store alert severity
+            if (alert.affected_barangays && alert.affected_barangays.length > 0) {
+                alert.affected_barangays.forEach(barangayId => {
+                    affectedBarangaysSet.add(barangayId);
                     
-                    switch (alert.severity_level) {
-                        case 5:
-                            alertClass = 'alert-danger';
-                            severityText = 'CATASTROPHIC';
-                            break;
-                        case 4:
-                            alertClass = 'alert-danger';
-                            severityText = 'EMERGENCY';
-                            break;
-                        case 3:
-                            alertClass = 'alert-warning';
-                            severityText = 'WARNING';
-                            break;
-                        case 2:
-                            alertClass = 'alert-warning';
-                            severityText = 'WATCH';
-                            break;
-                        case 1:
-                            alertClass = 'alert-info';
-                            severityText = 'ADVISORY';
-                            break;
+                    // Keep track of highest severity for this barangay
+                    if (!barangayDetails[barangayId] || 
+                        alert.severity_level > barangayDetails[barangayId].severity_level) {
+                        barangayDetails[barangayId] = {
+                            severity_level: alert.severity_level,
+                            alert_title: alert.title,
+                            severity_text: severityText,
+                            alert_class: alertClass
+                        };
                     }
-                    
-                    // Format the date
-                    const issuedDate = new Date(alert.issued_at).toLocaleString();
-                    
-                    // Add affected barangays to set and store alert severity
-                    if (alert.affected_barangays && alert.affected_barangays.length > 0) {
-                        alert.affected_barangays.forEach(barangayId => {
-                            affectedBarangaysSet.add(barangayId);
-                            
-                            // Keep track of highest severity for this barangay
-                            if (!barangayDetails[barangayId] || 
-                                alert.severity_level > barangayDetails[barangayId].severity_level) {
-                                barangayDetails[barangayId] = {
-                                    severity_level: alert.severity_level,
-                                    alert_title: alert.title,
-                                    severity_text: severityText,
-                                    alert_class: alertClass
-                                };
-                            }
-                        });
-                    }
-                    
-                    // Build the HTML for this alert
-                    alertsHtml += `
-                        <div class="alert ${alertClass} mb-3">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h5 class="alert-heading">${severityText}: ${alert.title}</h5>
-                                    <p>${alert.description}</p>
-                                    <div class="small text-muted mt-2">
-                                        Issued: ${issuedDate} by ${alert.issued_by_username || 'System'}
-                                    </div>
-                                </div>
-                                <div>
-                                    ${alert.predicted_flood_time ? `
-                                        <div class="text-center">
-                                            <div class="fw-bold">Predicted Impact</div>
-                                            <div class="countdown-timer" data-target="${new Date(alert.predicted_flood_time).getTime()}">
-                                                Loading...
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                </div>
+                });
+            }
+            
+            // Build the HTML for this alert
+            alertsHtml += `
+                <div class="alert ${alertClass} mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="alert-heading">${severityText}: ${alert.title}</h5>
+                            <p>${alert.description}</p>
+                            <div class="small text-muted mt-2">
+                                Issued: ${issuedDate} by ${alert.issued_by_username || 'System'}
                             </div>
                         </div>
-                    `;
-                });
-                
-                // Update the alerts container
-                alertsContainer.innerHTML = alertsHtml;
-                
-                // Initialize countdown timers
-                document.querySelectorAll('.countdown-timer').forEach(timer => {
-                    const targetTime = parseInt(timer.getAttribute('data-target'));
-                    updateCountdown(timer, targetTime);
-                    setInterval(() => updateCountdown(timer, targetTime), 1000);
-                });
-                
-                // Now handle the affected barangays section
-                if (affectedBarangaysSet.size > 0) {
-                    // We have affected barangays
-                    if (affectedBarangaysContainer) {
-                        affectedBarangaysContainer.classList.remove('d-none');
-                    }
-                    if (noAffectedBarangaysElement) {
-                        noAffectedBarangaysElement.classList.add('d-none');
-                    }
-                    
-                    // Construct the URL with location parameters
-                    let barangayUrl = '/api/barangays/';
+                        <div>
+                            ${alert.predicted_flood_time ? `
+                                <div class="text-center">
+                                    <div class="fw-bold">Predicted Impact</div>
+                                    <div class="countdown-timer" data-target="${new Date(alert.predicted_flood_time).getTime()}">
+                                        Loading...
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Update the alerts container
+        alertsContainer.innerHTML = alertsHtml;
+        
+        // Initialize countdown timers
+        document.querySelectorAll('.countdown-timer').forEach(timer => {
+            const targetTime = parseInt(timer.getAttribute('data-target'));
+            updateCountdown(timer, targetTime);
+            setInterval(() => updateCountdown(timer, targetTime), 1000);
+        });
+        
+        // Now handle the affected barangays section
+        if (affectedBarangaysSet.size > 0) {
+            // We have affected barangays
+            if (affectedBarangaysContainer) {
+                affectedBarangaysContainer.classList.remove('d-none');
+            }
+            if (noAffectedBarangaysElement) {
+                noAffectedBarangaysElement.classList.add('d-none');
+            }
+            
+            // Construct the URL with location parameters
+            let barangayUrl = '/api/barangays/';
                     
                     // Add location parameters if available
                     if (window.selectedMunicipality) {
