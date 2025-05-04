@@ -457,13 +457,15 @@ function updatePredictionModel() {
             // Update the gauge
             document.getElementById('flood-probability').textContent = probability + '%';
             
-            // Change color based on probability
-            if (probability >= 75) {
+            // Change color based on probability - using only two colors (green for normal, red for danger)
+            gaugeCircle.classList.remove('danger');
+            if (probability >= 50) { // 50% or higher is considered danger level
+                gaugeCircle.classList.add('danger');
+                // Red for danger
                 gaugeCircle.style.background = 'conic-gradient(#dc3545 0% 100%)';
-            } else if (probability >= 50) {
-                gaugeCircle.style.background = 'conic-gradient(#ffc107 0% 100%)';
             } else {
-                gaugeCircle.style.background = 'conic-gradient(#0dcaf0 0% 100%)';
+                // Green for normal
+                gaugeCircle.style.background = 'conic-gradient(#198754 0% 100%)';
             }
             
             // Update predicted impact
