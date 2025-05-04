@@ -294,7 +294,6 @@ function checkActiveAlerts() {
     console.log(`[Alerts] Fetching alerts with URL: ${url}`);
     
     fetch(url, {
-        credentials: 'same-origin',  // Include cookies for authentication
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
@@ -316,7 +315,6 @@ function checkActiveAlerts() {
                 
                 // Fetch global alerts (without location filters)
                 fetch('/api/flood-alerts/?active=true', {
-                    credentials: 'same-origin',  // Include cookies for authentication
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json'
@@ -488,7 +486,6 @@ function processAlertsData(data) {
                     
                     // Fetch barangay details
                     fetch(barangayUrl, {
-                        credentials: 'same-origin',  // Include cookies for authentication
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
                             'Accept': 'application/json'
@@ -669,7 +666,6 @@ function updateAlertStatus(highestAlert) {
         }
         
         fetch(alertCountUrl, {
-            credentials: 'same-origin',  // Include cookies for authentication
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json'

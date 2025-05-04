@@ -30,7 +30,7 @@ class SensorViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for sensors"""
     queryset = Sensor.objects.all()
     serializer_class = SensorSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = Sensor.objects.all()
@@ -50,7 +50,7 @@ class SensorDataViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for sensor data"""
     queryset = SensorData.objects.all()
     serializer_class = SensorDataSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         queryset = SensorData.objects.all().order_by('-timestamp')
