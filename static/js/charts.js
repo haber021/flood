@@ -66,9 +66,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Set up window resize handler to adjust charts
         window.addEventListener('resize', function() {
-            if (temperatureChart) temperatureChart.resize();
-            if (rainfallChart) rainfallChart.resize();
-            if (waterLevelChart) waterLevelChart.resize();
+            if (temperatureChart) {
+                setTimeout(function() { temperatureChart.resize(); }, 100);
+            }
+            if (rainfallChart) {
+                setTimeout(function() { rainfallChart.resize(); }, 100);
+            }
+            if (waterLevelChart) {
+                setTimeout(function() { waterLevelChart.resize(); }, 100);
+            }
         });
     }
 });
@@ -139,6 +145,9 @@ function createChart(canvasId, label, colors) {
         console.warn('Chart.js zoom plugin not detected. Some features may be limited.');
     }
     
+    // Determine if we're on a mobile device
+    const isMobile = window.innerWidth < 768;
+    
     return new Chart(ctx, {
         type: 'line',
         data: {
@@ -148,10 +157,10 @@ function createChart(canvasId, label, colors) {
                 data: [],
                 borderColor: colors.borderColor,
                 backgroundColor: colors.backgroundColor,
-                borderWidth: 2,
+                borderWidth: isMobile ? 1.5 : 2,
                 tension: 0.2,
-                pointRadius: 3,
-                pointHoverRadius: 5
+                pointRadius: isMobile ? 2 : 3,
+                pointHoverRadius: isMobile ? 4 : 5
             }]
         },
         options: {
@@ -161,16 +170,36 @@ function createChart(canvasId, label, colors) {
                 duration: 750, // General animation duration
                 easing: 'easeOutQuart'
             },
+            onResize: function(chart, size) {
+                // Adjust point sizes based on screen width
+                const newIsMobile = size.width < 768;
+                chart.data.datasets.forEach(dataset => {
+                    dataset.pointRadius = newIsMobile ? 2 : 3;
+                    dataset.pointHoverRadius = newIsMobile ? 4 : 5;
+                    dataset.borderWidth = newIsMobile ? 1.5 : 2;
+                });
+            },
             scales: {
                 y: {
                     beginAtZero: false,
                     title: {
                         display: true,
-                        text: label
+                        text: label,
+                        font: {
+                            size: isMobile ? 10 : 12
+                        }
                     },
                     ticks: {
                         // Add padding so that points near the top or bottom are visible
-                        padding: 10
+                        padding: isMobile ? 5 : 10,
+                        font: {
+                            size: isMobile ? 9 : 11
+                        },
+                        maxTicksLimit: isMobile ? 5 : 8 // Limit number of ticks on mobile
+                    },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
                     }
                 },
                 x: {
@@ -180,8 +209,13 @@ function createChart(canvasId, label, colors) {
                     },
                     ticks: {
                         // For better readability on mobile
-                        maxRotation: 45,
-                        minRotation: 0
+                        maxRotation: isMobile ? 60 : 45,
+                        minRotation: 0,
+                        font: {
+                            size: isMobile ? 9 : 11
+                        },
+                        maxTicksLimit: isMobile ? 6 : 10, // Limit number of ticks on mobile
+                        autoSkip: true
                     }
                 }
             },
@@ -191,18 +225,24 @@ function createChart(canvasId, label, colors) {
                     intersect: false,
                     backgroundColor: 'rgba(0, 0, 0, 0.7)',
                     titleFont: {
-                        size: 14
+                        size: isMobile ? 12 : 14
                     },
                     bodyFont: {
-                        size: 13
+                        size: isMobile ? 11 : 13
                     },
-                    padding: 10
+                    padding: isMobile ? 8 : 10,
+                    displayColors: true,
+                    caretSize: isMobile ? 4 : 5
                 },
                 legend: {
                     position: 'top',
                     labels: {
                         usePointStyle: true,
-                        padding: 15
+                        padding: isMobile ? 10 : 15,
+                        boxWidth: isMobile ? 8 : 10,
+                        font: {
+                            size: isMobile ? 10 : 12
+                        }
                     }
                 },
                 zoom: {
