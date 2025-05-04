@@ -475,134 +475,134 @@ function processAlertsData(data) {
             
             // Construct the URL with location parameters
             let barangayUrl = '/api/barangays/';
-                    
-                    // Add location parameters if available
-                    if (window.selectedMunicipality) {
-                        barangayUrl += `?municipality_id=${window.selectedMunicipality.id}`;
-                        console.log(`[Barangays] Adding municipality filter: ${window.selectedMunicipality.name}`);
+            
+            // Add location parameters if available
+            if (window.selectedMunicipality) {
+                barangayUrl += `?municipality_id=${window.selectedMunicipality.id}`;
+                console.log(`[Barangays] Adding municipality filter: ${window.selectedMunicipality.name}`);
+            }
+            
+            console.log(`[Barangays] Fetching barangay data with URL: ${barangayUrl}`);
+            
+            // Fetch barangay details
+            fetch(barangayUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
                     }
-                    
-                    console.log(`[Barangays] Fetching barangay data with URL: ${barangayUrl}`);
-                    
-                    // Fetch barangay details
-                    fetch(barangayUrl, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        }
-                    })
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! Status: ${response.status}`);
-                            }
-                            return response.json();
-                        })
-                        .then(barangayData => {
-                            if (barangayData.results && barangayData.results.length > 0) {
-                                const barangays = barangayData.results;
-                                let barangayCardsHtml = '';
+                    return response.json();
+                })
+                .then(barangayData => {
+                    if (barangayData.results && barangayData.results.length > 0) {
+                        const barangays = barangayData.results;
+                        let barangayCardsHtml = '';
+                        
+                        // Filter to affected barangays and create cards
+                        barangays.forEach(barangay => {
+                            if (affectedBarangaysSet.has(barangay.id)) {
+                                const details = barangayDetails[barangay.id];
                                 
-                                // Filter to affected barangays and create cards
-                                barangays.forEach(barangay => {
-                                    if (affectedBarangaysSet.has(barangay.id)) {
-                                        const details = barangayDetails[barangay.id];
-                                        
-                                        barangayCardsHtml += `
-                                            <div class="col">
-                                                <div class="card h-100">
-                                                    <div class="card-header ${details.alert_class} text-white">
-                                                        <h5 class="mb-0">${barangay.name}</h5>
-                                                    </div>
-                                                    <div class="card-body">
-                                                        <p><strong>Alert Level:</strong> ${details.severity_text}</p>
-                                                        <p><strong>Alert:</strong> ${details.alert_title}</p>
-                                                        <p><strong>Population:</strong> ${barangay.population.toLocaleString()}</p>
-                                                        <p><strong>Contact:</strong> ${barangay.contact_person || 'N/A'}</p>
-                                                        <p><strong>Phone:</strong> ${barangay.contact_number || 'N/A'}</p>
-                                                    </div>
-                                                    <div class="card-footer text-center">
-                                                        <button class="btn btn-sm btn-outline-primary" onclick="highlightBarangay(${barangay.id})">
-                                                            <i class="fas fa-map-marker-alt me-1"></i> Show on Map
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                barangayCardsHtml += `
+                                    <div class="col">
+                                        <div class="card h-100">
+                                            <div class="card-header ${details.alert_class} text-white">
+                                                <h5 class="mb-0">${barangay.name}</h5>
                                             </div>
-                                        `;
-                                    }
-                                });
-                                
-                                // Update the barangay cards container
-                                document.getElementById('barangay-cards').innerHTML = barangayCardsHtml;
-                            }
-                        })
-                        .catch(error => {
-                            // Log the error but don't display the empty object in the console
-                            console.error('Error fetching barangay data:', error.message || 'Network or server error');
-                            
-                            // Show a message in the affected barangays container
-                            if (affectedBarangaysContainer) {
-                                affectedBarangaysContainer.innerHTML = `
-                                    <div class="alert alert-secondary">
-                                        <i class="fas fa-exclamation-circle me-2"></i>
-                                        Unable to load barangay details at this time.
+                                            <div class="card-body">
+                                                <p><strong>Alert Level:</strong> ${details.severity_text}</p>
+                                                <p><strong>Alert:</strong> ${details.alert_title}</p>
+                                                <p><strong>Population:</strong> ${barangay.population.toLocaleString()}</p>
+                                                <p><strong>Contact:</strong> ${barangay.contact_person || 'N/A'}</p>
+                                                <p><strong>Phone:</strong> ${barangay.contact_number || 'N/A'}</p>
+                                            </div>
+                                            <div class="card-footer text-center">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="highlightBarangay(${barangay.id})">
+                                                    <i class="fas fa-map-marker-alt me-1"></i> Show on Map
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 `;
                             }
                         });
+                        
+                        // Update the barangay cards container
+                        document.getElementById('barangay-cards').innerHTML = barangayCardsHtml;
+                    }
+                })
+                .catch(error => {
+                    // Log the error but don't display the empty object in the console
+                    console.error('Error fetching barangay data:', error.message || 'Network or server error');
                     
-                } else {
-                    // No affected barangays
+                    // Show a message in the affected barangays container
                     if (affectedBarangaysContainer) {
-                        affectedBarangaysContainer.classList.add('d-none');
+                        affectedBarangaysContainer.innerHTML = `
+                            <div class="alert alert-secondary">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                Unable to load barangay details at this time.
+                            </div>
+                        `;
                     }
-                    if (noAffectedBarangaysElement) {
-                        noAffectedBarangaysElement.classList.remove('d-none');
-                    }
-                }
-                
-                // Update alert status display
-                updateAlertStatus(alerts[0]);
-            } else {
-                // No active alerts
-                if (alertsContainer) {
-                    alertsContainer.classList.add('d-none');
-                }
-                if (noAlertsElement) {
-                    noAlertsElement.classList.remove('d-none');
-                }
-                
-                // Also clear affected barangays section
-                if (affectedBarangaysContainer) {
-                    affectedBarangaysContainer.classList.add('d-none');
-                }
-                if (noAffectedBarangaysElement) {
-                    noAffectedBarangaysElement.classList.remove('d-none');
-                }
-                
-                // Update alert status to normal
-                updateAlertStatus(null);
-            }
-        })
-        .catch(error => {
-            // Check if containers exist before trying to update them
-            const alertsContainer = document.getElementById('alerts-list');
-            const noAlertsElement = document.getElementById('no-alerts');
+                });
             
-            // If alert elements exist, show no alerts message
-            if (alertsContainer && noAlertsElement) {
-                alertsContainer.classList.add('d-none');
-                noAlertsElement.classList.remove('d-none');
-                noAlertsElement.innerHTML = '<div class="alert alert-secondary">Unable to load alerts at this time.</div>';
+        } else {
+            // No affected barangays
+            if (affectedBarangaysContainer) {
+                affectedBarangaysContainer.classList.add('d-none');
             }
-            
-            // Log the error but don't display the empty object in the console
-            console.error('Error checking alerts:', error.message || 'Network or server error');
-            
-            // Update alert status to normal as a fallback
-            if (typeof updateAlertStatus === 'function') {
-                updateAlertStatus(null);
+            if (noAffectedBarangaysElement) {
+                noAffectedBarangaysElement.classList.remove('d-none');
             }
-        });
+        }
+        
+        // Update alert status display
+        updateAlertStatus(alerts[0]);
+    } else {
+        // No active alerts
+        if (alertsContainer) {
+            alertsContainer.classList.add('d-none');
+        }
+        if (noAlertsElement) {
+            noAlertsElement.classList.remove('d-none');
+        }
+        
+        // Also clear affected barangays section
+        if (affectedBarangaysContainer) {
+            affectedBarangaysContainer.classList.add('d-none');
+        }
+        if (noAffectedBarangaysElement) {
+            noAffectedBarangaysElement.classList.remove('d-none');
+        }
+        
+        // Update alert status to normal
+        updateAlertStatus(null);
+    }
+    })
+    .catch(error => {
+        // Check if containers exist before trying to update them
+        const alertsContainer = document.getElementById('alerts-list');
+        const noAlertsElement = document.getElementById('no-alerts');
+        
+        // If alert elements exist, show no alerts message
+        if (alertsContainer && noAlertsElement) {
+            alertsContainer.classList.add('d-none');
+            noAlertsElement.classList.remove('d-none');
+            noAlertsElement.innerHTML = '<div class="alert alert-secondary">Unable to load alerts at this time.</div>';
+        }
+        
+        // Log the error but don't display the empty object in the console
+        console.error('Error checking alerts:', error.message || 'Network or server error');
+        
+        // Update alert status to normal as a fallback
+        if (typeof updateAlertStatus === 'function') {
+            updateAlertStatus(null);
+        }
+    });
 }
 
 /**
