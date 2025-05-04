@@ -259,41 +259,39 @@ function updateGauge(gaugeId, value, unit, timestampElementId, timestamp = null)
  * Update gauge color based on value and thresholds
  */
 function updateGaugeColor(gaugeId, value) {
-    // Define thresholds for different parameters
-    const thresholds = {
-        'temperature-gauge': [28, 30, 32, 35], // Normal, Advisory, Watch, Warning, Emergency
-        'humidity-gauge': [70, 80, 85, 90],
-        'rainfall-gauge': [20, 40, 80, 120],
-        'water-level-gauge': [0.5, 1, 1.5, 2],
-        'wind-speed-gauge': [20, 30, 40, 60]
+    // Define danger thresholds for different parameters (single threshold per gauge)
+    const dangerThresholds = {
+        'temperature-gauge': 32,    // Danger threshold for high temperature
+        'humidity-gauge': 85,      // Danger threshold for high humidity
+        'rainfall-gauge': 80,      // Danger threshold for heavy rainfall
+        'water-level-gauge': 1.5,  // Danger threshold for high water level
+        'wind-speed-gauge': 40     // Danger threshold for strong wind
     };
     
-    // Get the appropriate thresholds or use default
-    const gaugeThresholds = thresholds[gaugeId] || [20, 40, 60, 80];
+    // Get the appropriate threshold or use default
+    const dangerThreshold = dangerThresholds[gaugeId] || 50;
     
-    // Define colors for different levels
-    const colors = ['#198754', '#0dcaf0', '#ffc107', '#fd7e14', '#dc3545'];
+    // Define colors - only green (normal) and red (danger)
+    const normalColor = '#198754';  // Green
+    const dangerColor = '#dc3545';  // Red
     
-    // Determine color index based on value and thresholds
-    let colorIndex = 0;
-    for (let i = 0; i < gaugeThresholds.length; i++) {
-        if (value >= gaugeThresholds[i]) {
-            colorIndex = i + 1;
-        }
-    }
+    // Determine if value exceeds danger threshold
+    const isDanger = value >= dangerThreshold;
     
     // Apply color to gauge
     const gauge = document.getElementById(gaugeId);
     if (gauge) {
-        // Remove existing color classes
-        gauge.classList.remove('gauge-normal', 'gauge-advisory', 'gauge-watch', 'gauge-warning', 'gauge-emergency');
+        // Remove all existing color classes
+        gauge.classList.remove('gauge-normal', 'gauge-advisory', 'gauge-watch', 'gauge-warning', 'gauge-emergency', 'gauge-danger');
         
-        // Add appropriate color class
-        const colorClasses = ['gauge-normal', 'gauge-advisory', 'gauge-watch', 'gauge-warning', 'gauge-emergency'];
-        gauge.classList.add(colorClasses[colorIndex]);
-        
-        // Set gauge color using CSS variable
-        gauge.style.setProperty('--gauge-color', colors[colorIndex]);
+        // Add appropriate color class and set color
+        if (isDanger) {
+            gauge.classList.add('gauge-danger');
+            gauge.style.setProperty('--gauge-color', dangerColor);
+        } else {
+            gauge.classList.add('gauge-normal');
+            gauge.style.setProperty('--gauge-color', normalColor);
+        }
     }
 }
 
