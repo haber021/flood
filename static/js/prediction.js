@@ -69,12 +69,14 @@ document.addEventListener('DOMContentLoaded', function() {
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-sync-alt fa-spin me-1"></i> Refreshing...';
         
-        // Simulate a delay for the refresh
+        // Call the actual API for real-time data
+        updatePredictionModel();
+        
+        // Re-enable the button after a short delay
         setTimeout(() => {
-            updatePredictionModel();
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-sync-alt me-1"></i> Refresh';
-        }, 1500);
+        }, 1000);
     });
     
     // Export chart button
@@ -208,46 +210,48 @@ function loadHistoricalData() {
  * Add historical comparison data to chart
  */
 function addHistoricalComparisonData() {
-    // In a real app, this would fetch past years' data from the API
-    // For this example, we'll generate synthetic historical data
-    
-    // Get current dataset values and create a modified version for comparison
+    // Get current dataset values to help calculate thresholds
     const currentData = historicalChart.data.datasets[0].data;
-    const historicalValues = currentData.map(value => {
-        // Create a variation of current data for demonstration
-        const variance = Math.random() * 0.3 + 0.7; // 70-100% of current value
-        return value * variance;
-    });
     
-    // Add the historical dataset
-    historicalChart.data.datasets.push({
-        label: 'Historical Average (Past 3 Years)',
-        data: historicalValues,
-        borderColor: 'rgba(128, 128, 128, 0.7)',
-        backgroundColor: 'rgba(128, 128, 128, 0.1)',
-        borderWidth: 1,
-        borderDash: [5, 5],
-        tension: 0.2,
-        pointRadius: 2,
-        pointHoverRadius: 4
-    });
-    
-    // Update the chart
-    historicalChart.update();
-    
-    // Add flood threshold line if we're showing water level
-    if (currentHistoricalMode === 'water_level') {
-        // Get the max value to ensure our threshold is visible
-        const maxValue = Math.max(...currentData, ...historicalValues);
-        
-        // Add threshold line at 1.5m (typical flood level)
-        const floodThreshold = 1.5;
-        
-        // Add annotation if it's within visible range
-        if (floodThreshold <= maxValue * 1.2) {
-            addThresholdLine(floodThreshold, 'Flood Stage', 'rgba(220, 53, 69, 0.7)');
-        }
-    }
+    // Fetch actual historical average data from the API
+    fetch(`/api/chart-data/?type=${currentHistoricalMode}&days=${currentHistoricalPeriod}&historical=true`)
+        .then(response => response.json())
+        .then(data => {
+            // Add the historical dataset if we have data
+            if (data.historical_values && data.historical_values.length > 0) {
+                historicalChart.data.datasets.push({
+                    label: 'Historical Average (Past 3 Years)',
+                    data: data.historical_values,
+                    borderColor: 'rgba(128, 128, 128, 0.7)',
+                    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    tension: 0.2,
+                    pointRadius: 2,
+                    pointHoverRadius: 4
+                });
+                
+                // Update the chart
+                historicalChart.update();
+            } else {
+                console.log('No historical average data available');
+            }
+            
+            // Add flood threshold line if we're showing water level
+            if (currentHistoricalMode === 'water_level') {
+                // Get the threshold from API if available, otherwise use default
+                const threshold = data.threshold_value || 1.5;
+                
+                // Add threshold line at the specified level (typical flood level)
+                addThresholdLine(threshold, 'Flood Stage', 'rgba(220, 53, 69, 0.7)');
+            } else if (currentHistoricalMode === 'rainfall') {
+                // Add advisory threshold for significant rainfall (25mm/day)
+                addThresholdLine(25, 'Heavy Rainfall Advisory', 'rgba(255, 193, 7, 0.7)');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading historical comparison data:', error);
+        });
 }
 
 /**
