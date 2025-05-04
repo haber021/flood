@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(updateSensorData, 60000); // Update every minute
     setInterval(checkActiveAlerts, 30000); // Check alerts every 30 seconds
     
+    // Check regularly if location has changed
+    setInterval(checkLocationChange, 1000); // Check location change flag every second
+    
     // Auto-refresh dashboard
     setInterval(function() {
         // Don't refresh if user is interacting with form elements
@@ -501,6 +504,24 @@ function updateCountdown(element, targetTime) {
             ${hours}h ${minutes}m ${seconds}s
         </div>
     `;
+}
+
+/**
+ * Check if the location has changed and update data if needed
+ */
+function checkLocationChange() {
+    // Check for global location change flag
+    if (window.locationChanged) {
+        console.log('Location change detected in dashboard.js');
+        // Update sensor data
+        updateSensorData();
+        // Update alerts
+        checkActiveAlerts();
+        // Update charts if applicable
+        if (typeof updateAllCharts === 'function') {
+            updateAllCharts();
+        }
+    }
 }
 
 /**

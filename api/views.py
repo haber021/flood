@@ -56,6 +56,8 @@ class SensorDataViewSet(viewsets.ReadOnlyModelViewSet):
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         limit = self.request.query_params.get('limit', None)
+        municipality_id = self.request.query_params.get('municipality_id', None)
+        barangay_id = self.request.query_params.get('barangay_id', None)
         
         if sensor_id:
             queryset = queryset.filter(sensor_id=sensor_id)
@@ -68,6 +70,13 @@ class SensorDataViewSet(viewsets.ReadOnlyModelViewSet):
         
         if end_date:
             queryset = queryset.filter(timestamp__lte=end_date)
+            
+        # Filter by location if specified
+        if municipality_id:
+            queryset = queryset.filter(sensor__municipality_id=municipality_id)
+            
+        if barangay_id:
+            queryset = queryset.filter(sensor__barangay_id=barangay_id)
         
         if limit:
             queryset = queryset[:int(limit)]
@@ -223,6 +232,7 @@ class FloodAlertViewSet(viewsets.ModelViewSet):
         queryset = FloodAlert.objects.all().order_by('-issued_at')
         active = self.request.query_params.get('active', None)
         severity = self.request.query_params.get('severity', None)
+        municipality_id = self.request.query_params.get('municipality_id', None)
         barangay_id = self.request.query_params.get('barangay_id', None)
         
         if active:
@@ -231,6 +241,10 @@ class FloodAlertViewSet(viewsets.ModelViewSet):
         
         if severity:
             queryset = queryset.filter(severity_level=severity)
+            
+        if municipality_id:
+            # Filter alerts by affected barangays within the municipality
+            queryset = queryset.filter(affected_barangays__municipality_id=municipality_id).distinct()
         
         if barangay_id:
             queryset = queryset.filter(affected_barangays__id=barangay_id)

@@ -497,6 +497,18 @@ function refreshAllDataForNewLocation() {
         }
     }
     
+    // Update sensor data if we're on the dashboard
+    if (typeof updateSensorData === 'function') {
+        console.log('Updating sensor data with new location data...');
+        updateSensorData();
+    }
+    
+    // Update active alerts (for all pages that have them)
+    if (typeof checkActiveAlerts === 'function') {
+        console.log('Updating active alerts with new location data...');
+        checkActiveAlerts();
+    }
+    
     // Set a global indication that the location has changed (for other components to check)
     window.locationChanged = true;
     
