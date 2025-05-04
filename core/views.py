@@ -257,7 +257,6 @@ def config_page(request):
     
     return render(request, 'config.html', context)
 
-@login_required
 def get_chart_data(request):
     """API endpoint to get chart data for the dashboard"""
     chart_type = request.GET.get('type', 'temperature')
@@ -335,7 +334,6 @@ def get_chart_data(request):
     
     return JsonResponse(chart_data)
 
-@login_required
 def get_map_data(request):
     """API endpoint to get map data"""
     # Optional filters
@@ -470,7 +468,6 @@ def get_unit_for_sensor_type(sensor_type):
     }
     return units.get(sensor_type, '')
 
-@login_required
 def get_latest_sensor_data(request):
     """API endpoint to get the latest sensor data"""
     # Get limit parameter (default to 5)
@@ -501,7 +498,6 @@ def get_latest_sensor_data(request):
         'results': latest_readings[:limit]
     })
 
-@login_required
 def get_flood_alerts(request):
     """API endpoint to get flood alerts"""
     # Check if we only want active alerts
