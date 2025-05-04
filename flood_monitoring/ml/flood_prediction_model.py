@@ -16,10 +16,10 @@ import datetime
 import logging
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, mean_squared_error
+from sklearn.metrics import classification_report, mean_squared_error, mean_absolute_error, accuracy_score, f1_score
 from sklearn.pipeline import Pipeline
 import joblib
 
@@ -43,8 +43,15 @@ try:
         LSTMFloodPredictor
     )
     ADVANCED_ALGORITHMS_AVAILABLE = True
+    # Check if TensorFlow is available
+    try:
+        import tensorflow as tf
+        TENSORFLOW_AVAILABLE = True
+    except ImportError:
+        TENSORFLOW_AVAILABLE = False
 except ImportError:
     ADVANCED_ALGORITHMS_AVAILABLE = False
+    TENSORFLOW_AVAILABLE = False
 
 # Default algorithm to use
 DEFAULT_CLASSIFICATION_ALGORITHM = 'random_forest'  # Options: 'random_forest', 'gradient_boosting', 'svm', 'lstm'
