@@ -97,16 +97,35 @@ function initializeCharts() {
  * Used when location or filters change
  */
 function updateAllCharts() {
-    console.log('Updating all charts...');
+    console.log('Updating all charts with location filters...');
+    console.log('Current Municipality:', window.selectedMunicipality ? window.selectedMunicipality.name : 'All Municipalities');
+    console.log('Current Barangay:', window.selectedBarangay ? window.selectedBarangay.name : 'All Barangays');
+    
     // Reset zoom on all charts
     resetZoom('temperature-chart');
     resetZoom('rainfall-chart');
     resetZoom('water-level-chart');
     
-    // Reload data for all charts
+    // Reload data for all charts with the current location filters
     loadChartData('temperature');
     loadChartData('rainfall');
     loadChartData('water_level');
+    
+    // Update the location display in the UI if applicable
+    const locationDisplay = document.getElementById('current-location-display');
+    if (locationDisplay) {
+        let locationText = 'All Areas';
+        
+        if (window.selectedMunicipality) {
+            locationText = window.selectedMunicipality.name;
+            
+            if (window.selectedBarangay) {
+                locationText += ' > ' + window.selectedBarangay.name;
+            }
+        }
+        
+        locationDisplay.textContent = locationText;
+    }
 }
 
 /**
