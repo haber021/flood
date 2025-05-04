@@ -1,18 +1,20 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView, PasswordResetView
 from django.contrib.auth import login
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.models import User, Group
 from django.contrib import messages
-from django.db.models import Avg, Max, Min
+from django.db.models import Avg, Max, Min, Q
 from django.utils import timezone
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
+from django.core.paginator import Paginator
 from datetime import timedelta
 from .models import (
-    Sensor, SensorData, Barangay, FloodRiskZone, 
-    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact
+    Sensor, SensorData, Barangay, FloodRiskZone, Municipality,
+    FloodAlert, ThresholdSetting, NotificationLog, EmergencyContact, UserProfile
 )
-from .forms import FloodAlertForm, ThresholdSettingForm, BarangaySearchForm, RegisterForm
+from .forms import FloodAlertForm, ThresholdSettingForm, BarangaySearchForm, RegisterForm, UserProfileForm
 
 class CustomLoginView(LoginView):
     template_name = 'login.html'
@@ -449,3 +451,147 @@ def get_flood_alerts(request):
         'count': len(alert_data),
         'results': alert_data
     })
+
+
+def get_unit_for_sensor_type(sensor_type):
+    """Helper function to get the appropriate unit for a sensor type"""
+    unit_map = {
+        'temperature': '°C',
+        'humidity': '%',
+        'rainfall': 'mm',
+        'water_level': 'm',
+        'wind_speed': 'km/h',
+    }
+    return unit_map.get(sensor_type, '')
+
+
+# User Management and Profile Views
+
+@login_required
+def profile(request):
+    """User profile page view"""
+    user = request.user
+    profile = user.profile
+    
+    context = {
+        'user': user,
+        'profile': profile,
+        'page': 'profile'
+    }
+    
+    return render(request, 'profile.html', context)
+
+@login_required
+def edit_profile(request):
+    """Edit user profile view"""
+    user = request.user
+    
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=user.profile, user=user)
+        if form.is_valid():
+            form.save(user=user)
+            messages.success(request, 'Your profile has been updated!')
+            return redirect('profile')
+    else:
+        form = UserProfileForm(instance=user.profile, user=user)
+    
+    context = {
+        'form': form,
+        'page': 'profile'
+    }
+    
+    return render(request, 'edit_profile.html', context)
+
+# Helper function to check if user is admin or manager
+def is_admin_or_manager(user):
+    """Check if the user is an admin or flood manager"""
+    if user.is_superuser:
+        return True
+    if hasattr(user, 'profile'):
+        return user.profile.role in ['admin', 'manager']
+    return False
+
+@login_required
+@user_passes_test(is_admin_or_manager)
+def user_management(request):
+    """User management page for admins and managers"""
+    # Get all users
+    users = User.objects.all().select_related('profile').order_by('username')
+    
+    # Handle search and filtering
+    search_query = request.GET.get('search', '')
+    role_filter = request.GET.get('role', '')
+    municipality_filter = request.GET.get('municipality', '')
+    
+    if search_query:
+        users = users.filter(Q(username__icontains=search_query) | 
+                            Q(first_name__icontains=search_query) | 
+                            Q(last_name__icontains=search_query) | 
+                            Q(email__icontains=search_query))
+    
+    if role_filter:
+        users = users.filter(profile__role=role_filter)
+    
+    if municipality_filter:
+        users = users.filter(profile__municipality_id=municipality_filter)
+    
+    # Pagination
+    paginator = Paginator(users, 10)  # 10 users per page
+    page_number = request.GET.get('page', 1)
+    users_page = paginator.get_page(page_number)
+    
+    # Get all municipalities for the filter
+    municipalities = Municipality.objects.filter(is_active=True).order_by('name')
+    
+    context = {
+        'users': users_page,
+        'search_query': search_query,
+        'role_filter': role_filter,
+        'municipality_filter': municipality_filter,
+        'municipalities': municipalities,
+        'user_roles': UserProfile.USER_ROLES,
+        'page': 'user_management'
+    }
+    
+    return render(request, 'user_management.html', context)
+
+@login_required
+@user_passes_test(is_admin_or_manager)
+def view_user(request, user_id):
+    """View details of a specific user"""
+    viewed_user = get_object_or_404(User.objects.select_related('profile'), id=user_id)
+    
+    context = {
+        'viewed_user': viewed_user,
+        'page': 'user_management'
+    }
+    
+    return render(request, 'view_user.html', context)
+
+@login_required
+@user_passes_test(is_admin_or_manager)
+def edit_user(request, user_id):
+    """Edit a specific user (admin only)"""
+    viewed_user = get_object_or_404(User.objects.select_related('profile'), id=user_id)
+    
+    # Only superuser can edit other superusers
+    if viewed_user.is_superuser and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to edit this user.')
+        return redirect('user_management')
+    
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=viewed_user.profile, user=viewed_user)
+        if form.is_valid():
+            form.save(user=viewed_user)
+            messages.success(request, f'User {viewed_user.username} has been updated!')
+            return redirect('view_user', user_id=user_id)
+    else:
+        form = UserProfileForm(instance=viewed_user.profile, user=viewed_user)
+    
+    context = {
+        'form': form,
+        'viewed_user': viewed_user,
+        'page': 'user_management'
+    }
+    
+    return render(request, 'edit_user.html', context)
