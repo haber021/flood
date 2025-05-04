@@ -160,8 +160,10 @@ function createChart(canvasId, label, colors) {
         console.warn('Chart.js zoom plugin not detected. Some features may be limited.');
     }
     
-    // Determine if we're on a mobile device
+    // Determine screen size categories
     const isMobile = window.innerWidth < 768;
+    const isWideScreen = window.innerWidth >= 1400;
+    const isUltraWideScreen = window.innerWidth >= 2200;
     
     return new Chart(ctx, {
         type: 'line',
@@ -204,6 +206,14 @@ function createChart(canvasId, label, colors) {
                 // Update chart to reflect the changes
                 chart.update('none'); // Update without animation for better performance
             },
+            layout: {
+                padding: {
+                    left: 10,
+                    right: 20,
+                    top: 20,
+                    bottom: 10
+                }
+            },
             scales: {
                 y: {
                     beginAtZero: false,
@@ -211,16 +221,19 @@ function createChart(canvasId, label, colors) {
                         display: true,
                         text: label,
                         font: {
-                            size: isMobile ? 10 : 12
-                        }
+                            size: isMobile ? 10 : 12,
+                            weight: 'bold'
+                        },
+                        padding: {bottom: 10, top: 10}
                     },
                     ticks: {
                         // Add padding so that points near the top or bottom are visible
-                        padding: isMobile ? 5 : 10,
+                        padding: isMobile ? 8 : 12,
                         font: {
                             size: isMobile ? 9 : 11
                         },
-                        maxTicksLimit: isMobile ? 5 : 8 // Limit number of ticks on mobile
+                        maxTicksLimit: isMobile ? 5 : 8, // Limit number of ticks on mobile
+                        precision: 1 // Limit decimal places
                     },
                     grid: {
                         display: true,
@@ -231,7 +244,10 @@ function createChart(canvasId, label, colors) {
                     title: {
                         display: true,
                         text: 'Time',
-                        padding: {top: 10, bottom: 0}
+                        font: {
+                            weight: 'bold'
+                        },
+                        padding: {top: 15, bottom: 10}
                     },
                     grid: {
                         display: true,
@@ -239,14 +255,16 @@ function createChart(canvasId, label, colors) {
                     },
                     ticks: {
                         // For better readability on mobile
-                        maxRotation: 45, // Allow some rotation for better spacing
+                        maxRotation: isMobile ? 45 : 30, // Allow some rotation for better spacing
                         minRotation: 0,
-                        padding: 12, // More padding between labels
+                        padding: isMobile ? 8 : 15, // More padding between labels
                         font: {
-                            size: isMobile ? 10 : 12
+                            size: isMobile ? 10 : 12,
+                            weight: isUltraWideScreen ? 'bold' : 'normal'
                         },
-                        maxTicksLimit: isMobile ? 5 : 8, // Adjusted to show more dates
+                        maxTicksLimit: isMobile ? 5 : (isUltraWideScreen ? 16 : (isWideScreen ? 12 : 8)), // Adjusted to show more dates on wider screens
                         autoSkip: true,
+                        align: 'inner',
                         callback: function(value, index, values) {
                             // Improved date/time formatting
                             if (typeof value === 'string' && value.includes('-')) {
