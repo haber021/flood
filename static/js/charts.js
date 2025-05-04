@@ -152,7 +152,11 @@ function createChart(canvasId, label, colors) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     
     // Register the zoom plugin if not already registered
-    if (!Chart.registry.getPlugin('zoom')) {
+    try {
+        if (Chart.registry.getPlugin('zoom')) {
+            console.log('Chart.js zoom plugin registered successfully');
+        }
+    } catch (e) {
         console.warn('Chart.js zoom plugin not detected. Some features may be limited.');
     }
     
@@ -250,17 +254,21 @@ function createChart(canvasId, label, colors) {
                                     const date = new Date(value);
                                     if (!isNaN(date.getTime())) {
                                         // Check if we have more than 1 day of data
-                                        const chartDays = currentHistoricalPeriod || 1;
+                                        const chartDays = chartTimePeriod || 1;
                                         
                                         if (chartDays >= 7) {
-                                            // For weekly+ data, just show month and day
+                                            // For weekly+ data, show month and day
                                             return `${date.getMonth()+1}/${date.getDate()}`;
                                         } else if (chartDays > 1) {
                                             // For multi-day data, show day and time
-                                            return `${date.getDate()}/${date.getMonth()+1} ${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
+                                            const hours = date.getHours().toString().padStart(2, '0');
+                                            const mins = date.getMinutes().toString().padStart(2, '0');
+                                            return `${date.getDate()}/${date.getMonth()+1} ${hours}:${mins}`;
                                         } else {
                                             // For single day data, show just the time
-                                            return `${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
+                                            const hours = date.getHours().toString().padStart(2, '0');
+                                            const mins = date.getMinutes().toString().padStart(2, '0');
+                                            return `${hours}:${mins}`;
                                         }
                                     }
                                 } catch (e) {
@@ -559,9 +567,17 @@ function resetZoom(chartId) {
         chart.resetZoom();
     } else if (chart) {
         // For Chart.js v3+ with zoom plugin
-        const zoomPlugin = Chart.getPlugin('zoom');
-        if (zoomPlugin) {
-            zoomPlugin.resetZoom(chart);
+        try {
+            const zoomPlugin = Chart.registry.getPlugin('zoom');
+            if (zoomPlugin) {
+                zoomPlugin.resetZoom(chart);
+            }
+        } catch (e) {
+            console.warn('Zoom plugin not detected or error resetting zoom:', e);
+            // Try to reset scales to their defaults
+            if (chart.options.scales) {
+                chart.update();
+            }
         }
     }
 }
