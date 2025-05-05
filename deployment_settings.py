@@ -1,6 +1,9 @@
 # Deployment settings for the Flood Monitoring System
 # Copy these settings to your settings.py file when deploying to production
 
+import os
+import dj_database_url
+
 # Database configuration for MySQL
 # Replace the existing PostgreSQL configuration with this MySQL configuration
 
@@ -20,6 +23,15 @@ else:
             'PASSWORD': 'root',      # Database password
             'HOST': '127.0.0.1',     # Database host
             'PORT': '3305',          # Database port
+            'OPTIONS': {
+                'charset': 'utf8mb4',  # Full Unicode support
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # Strict mode for data integrity
+                'autocommit': True,    # Auto-commit transactions
+            },
+            'TEST': {
+                'CHARSET': 'utf8mb4',
+                'COLLATION': 'utf8mb4_unicode_ci',
+            }
         }
     }
 
