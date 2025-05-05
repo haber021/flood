@@ -2,7 +2,7 @@ modules = ["python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["glibcLocales", "libmysqlclient", "pkg-config"]
+packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libmysqlclient", "pkg-config", "qhull", "tcl", "tk"]
 
 [workflows]
 runButton = "Project"

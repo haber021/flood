@@ -34,27 +34,112 @@ REGRESSION_MODEL_PATH = os.path.join(MODEL_DIR, 'flood_timing_model.joblib')
 SCALER_PATH = os.path.join(MODEL_DIR, 'feature_scaler.joblib')
 
 # Try to import advanced algorithms (optional)
+# Import placeholder classes for graceful fallback when libraries aren't available
+class DummyPredictor:
+    """Placeholder class when advanced algorithms are not available"""
+    def __init__(self, *args, **kwargs):
+        pass
+        
+    def train(self, *args, **kwargs):
+        logger.warning("Advanced algorithms not available. Using standard models instead.")
+        return None
+        
+    def predict(self, *args, **kwargs):
+        logger.warning("Advanced algorithms not available. Using standard models instead.")
+        return None, None
+
+# Set defaults assuming libraries aren't available
+GradientBoostingFloodPredictor = DummyPredictor
+SVMFloodPredictor = DummyPredictor
+TimeSeriesForecaster = DummyPredictor
+SpatialAnalyzer = DummyPredictor
+LSTMFloodPredictor = DummyPredictor
+MultiCriteriaDecisionAnalyzer = DummyPredictor
+DynamicTimeWarpingAnalyzer = DummyPredictor
+ADVANCED_ALGORITHMS_AVAILABLE = False
+TENSORFLOW_AVAILABLE = False
+
+# Now try to import the real implementations
 try:
-    from flood_monitoring.ml.advanced_algorithms import (
+    # First check basic dependencies
+    import numpy as np
+    import pandas as pd
+    import joblib
+    from sklearn.ensemble import RandomForestClassifier
+    BASIC_DEPENDENCIES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Basic ML dependencies not available: {str(e)}")
+    BASIC_DEPENDENCIES_AVAILABLE = False
+
+# First try to import safe algorithms which have no problematic dependencies
+try:
+    from flood_monitoring.ml.safe_algorithms import (
         GradientBoostingFloodPredictor,
         SVMFloodPredictor,
-        TimeSeriesForecaster,
-        SpatialAnalyzer,
-        LSTMFloodPredictor
+        MultiCriteriaDecisionAnalyzer,
+        DynamicTimeWarpingAnalyzer,
+        TimeSeriesForecaster
     )
-    ADVANCED_ALGORITHMS_AVAILABLE = True
-    # Check if TensorFlow is available
-    try:
-        import tensorflow as tf
-        TENSORFLOW_AVAILABLE = True
-    except ImportError:
-        TENSORFLOW_AVAILABLE = False
-except ImportError:
+    SAFE_ALGORITHMS_AVAILABLE = True
+    ADVANCED_ALGORITHMS_AVAILABLE = True  # Safe algorithms can be used as advanced ones
+    logger.info("Safe prediction algorithms successfully loaded")
+except ImportError as e:
+    logger.warning(f"Safe algorithms not imported: {str(e)}")
+    SAFE_ALGORITHMS_AVAILABLE = False
     ADVANCED_ALGORITHMS_AVAILABLE = False
-    TENSORFLOW_AVAILABLE = False
+
+# Dummy LSTMFloodPredictor and SpatialAnalyzer since they're not in safe_algorithms
+class DummyLSTMPredictor(DummyPredictor):
+    pass
+
+class DummySpatialAnalyzer(DummyPredictor):
+    pass
+
+LSTMFloodPredictor = DummyLSTMPredictor
+SpatialAnalyzer = DummySpatialAnalyzer
+TENSORFLOW_AVAILABLE = False
+
+# Then try to import real advanced algorithms (may fail due to TensorFlow)
+if BASIC_DEPENDENCIES_AVAILABLE and not ADVANCED_ALGORITHMS_AVAILABLE:
+    try:
+        # Try to import advanced algorithms with potential TensorFlow dependency
+        from flood_monitoring.ml.advanced_algorithms import (
+            GradientBoostingFloodPredictor as AdvGradientBoostingFloodPredictor,
+            SVMFloodPredictor as AdvSVMFloodPredictor,
+            TimeSeriesForecaster as AdvTimeSeriesForecaster,
+            SpatialAnalyzer as AdvSpatialAnalyzer,
+            MultiCriteriaDecisionAnalyzer as AdvMultiCriteriaDecisionAnalyzer,
+            DynamicTimeWarpingAnalyzer as AdvDynamicTimeWarpingAnalyzer
+        )
+        
+        # If we got here, we can use the advanced versions
+        GradientBoostingFloodPredictor = AdvGradientBoostingFloodPredictor
+        SVMFloodPredictor = AdvSVMFloodPredictor
+        TimeSeriesForecaster = AdvTimeSeriesForecaster
+        SpatialAnalyzer = AdvSpatialAnalyzer
+        MultiCriteriaDecisionAnalyzer = AdvMultiCriteriaDecisionAnalyzer
+        DynamicTimeWarpingAnalyzer = AdvDynamicTimeWarpingAnalyzer
+        
+        ADVANCED_ALGORITHMS_AVAILABLE = True
+        logger.info("Advanced prediction algorithms successfully loaded")
+        
+        # Try to import LSTM which requires TensorFlow
+        try:
+            import tensorflow as tf
+            from flood_monitoring.ml.advanced_algorithms import LSTMFloodPredictor as AdvLSTMFloodPredictor
+            LSTMFloodPredictor = AdvLSTMFloodPredictor
+            TENSORFLOW_AVAILABLE = True
+            logger.info("TensorFlow successfully loaded for neural network models")
+        except (ImportError, Exception) as e:
+            logger.warning(f"TensorFlow not available: {str(e)}")
+            TENSORFLOW_AVAILABLE = False
+            
+    except ImportError as e:
+        logger.warning(f"Advanced algorithms not imported: {str(e)}")
+        # We keep using the safe algorithms if they were loaded
 
 # Default algorithm to use
-DEFAULT_CLASSIFICATION_ALGORITHM = 'random_forest'  # Options: 'random_forest', 'gradient_boosting', 'svm', 'lstm'
+DEFAULT_CLASSIFICATION_ALGORITHM = 'random_forest'  # Options: 'random_forest', 'gradient_boosting', 'svm', 'lstm', 'ensemble', 'mcda', 'dtw', 'time_series'
 DEFAULT_REGRESSION_ALGORITHM = 'random_forest'      # Options: 'random_forest', 'gradient_boosting'
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
@@ -382,12 +467,30 @@ def predict_flood_probability(data, classification_algorithm=DEFAULT_CLASSIFICAT
     Args:
         data (dict or pandas.DataFrame): Current sensor readings and geographical info
         classification_algorithm (str): Algorithm to use for classification
+            Options: 'random_forest', 'gradient_boosting', 'svm', 'lstm', 'ensemble',
+            'mcda', 'dtw', 'time_series'
         regression_algorithm (str): Algorithm to use for regression
         
     Returns:
         dict: Prediction results including probability, severity, time to flood, etc.
     """
-    # Load models with specified algorithms
+    # Check if we're using an advanced ensemble approach
+    if classification_algorithm == 'ensemble' and ADVANCED_ALGORITHMS_AVAILABLE:
+        return predict_with_ensemble(data)
+    
+    # If we're using Multi-criteria Decision Analysis
+    if classification_algorithm == 'mcda' and ADVANCED_ALGORITHMS_AVAILABLE:
+        return predict_with_mcda(data)
+    
+    # If we're using Dynamic Time Warping
+    if classification_algorithm == 'dtw' and ADVANCED_ALGORITHMS_AVAILABLE:
+        return predict_with_dtw(data)
+    
+    # If we're using time series forecasting
+    if classification_algorithm == 'time_series' and ADVANCED_ALGORITHMS_AVAILABLE:
+        return predict_with_time_series(data)
+        
+    # Load models with specified algorithms for standard approaches
     classification_model, regression_model = load_models(classification_algorithm, regression_algorithm)
     
     # Initialize result dictionary
@@ -398,7 +501,8 @@ def predict_flood_probability(data, classification_algorithm=DEFAULT_CLASSIFICAT
         'hours_to_flood': None,
         'contributing_factors': [],
         'model_used': classification_algorithm,
-        'last_updated': datetime.datetime.now().isoformat()
+        'last_updated': datetime.datetime.now().isoformat(),
+        'prediction_details': {}
     }
     
     if classification_model is None:
@@ -518,6 +622,610 @@ def predict_flood_probability(data, classification_algorithm=DEFAULT_CLASSIFICAT
             result['contributing_factors'].append("Multiple minor factors contributing to flood risk")
     
     return result
+
+
+def predict_with_ensemble(data):
+    """Make flood prediction using an ensemble of multiple models
+    
+    This function combines predictions from multiple models to improve accuracy and robustness.
+    
+    Args:
+        data (dict): Dictionary containing environmental conditions
+        
+    Returns:
+        dict: Prediction results including probability, impact assessment,
+              estimated time to flood, and contributing factors
+    """
+    logger.info("Making flood prediction using ensemble of multiple models")
+    
+    # Initialize result
+    result = {
+        'probability': 0,
+        'hours_to_flood': None,
+        'severity_level': 1,
+        'severity_text': 'Advisory',
+        'impact': 'No significant flooding expected.',
+        'contributing_factors': [],
+        'model_used': 'ensemble',
+        'prediction_details': {
+            'algorithm': 'Ensemble (Multiple Models)',
+            'individual_models': {}
+        }
+    }
+    
+    # Preprocess input data
+    X = preprocess_data(data)
+    
+    # List of models to try (in order of preference)
+    # If advanced algorithms aren't available, just use the basic model
+    if not ADVANCED_ALGORITHMS_AVAILABLE:
+        models_to_try = [
+            {'name': 'random_forest', 'weight': 1.0}
+        ]
+        logger.warning("Advanced algorithms not available. Using only Random Forest model in ensemble.")
+    else:
+        models_to_try = [
+            {'name': 'random_forest', 'weight': 0.3},
+            {'name': 'gradient_boosting', 'weight': 0.3},
+            {'name': 'svm', 'weight': 0.2}
+        ]
+        # Only add LSTM if TensorFlow is available
+        if TENSORFLOW_AVAILABLE:
+            models_to_try.append({'name': 'lstm', 'weight': 0.2})
+            logger.info("Using all models including neural networks in ensemble")
+        else:
+            # Redistribute weights
+            models_to_try = [
+                {'name': 'random_forest', 'weight': 0.4},
+                {'name': 'gradient_boosting', 'weight': 0.4},
+                {'name': 'svm', 'weight': 0.2}
+            ]
+            logger.info("Using ensemble without neural networks (TensorFlow not available)")
+    
+    # Track total weight of successful predictions
+    total_weight = 0
+    weighted_probability = 0
+    hours_predictions = []
+    
+    # Try each model and aggregate results
+    for model_info in models_to_try:
+        model_name = model_info['name']
+        model_weight = model_info['weight']
+        
+        try:
+            # Get prediction from this model
+            model_result = predict_flood_probability(data, classification_algorithm=model_name)
+            
+            # Store individual model result
+            result['prediction_details']['individual_models'][model_name] = {
+                'probability': model_result['probability'],
+                'hours_to_flood': model_result.get('hours_to_flood'),
+                'weight': model_weight
+            }
+            
+            # Add to weighted average
+            weighted_probability += model_result['probability'] * model_weight
+            total_weight += model_weight
+            
+            # Track time predictions
+            if model_result.get('hours_to_flood') is not None:
+                hours_predictions.append(model_result['hours_to_flood'])
+            
+            logger.info(f"Ensemble model {model_name} predicted {model_result['probability']}% probability")
+        except Exception as e:
+            logger.error(f"Error using {model_name} model in ensemble: {str(e)}")
+    
+    # If no models succeeded, fall back to default
+    if total_weight == 0:
+        logger.warning("All ensemble models failed. Falling back to default model.")
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    # Calculate final weighted average probability
+    final_probability = int(round(weighted_probability / total_weight))
+    result['probability'] = final_probability
+    
+    # Calculate average hours to flood (if any predictions)
+    if hours_predictions:
+        result['hours_to_flood'] = round(sum(hours_predictions) / len(hours_predictions), 1)
+    
+    # Determine severity level based on probability
+    if result['probability'] >= 85:
+        result['severity_level'] = 5
+        result['severity_text'] = 'Catastrophic'
+    elif result['probability'] >= 70:
+        result['severity_level'] = 4
+        result['severity_text'] = 'Emergency'
+    elif result['probability'] >= 55:
+        result['severity_level'] = 3
+        result['severity_text'] = 'Warning'
+    elif result['probability'] >= 40:
+        result['severity_level'] = 2
+        result['severity_text'] = 'Watch'
+    else:
+        result['severity_level'] = 1
+        result['severity_text'] = 'Advisory'
+    
+    # Generate impact assessment
+    result['impact'] = generate_impact_assessment(result['probability'], result['hours_to_flood'])
+    
+    # Identify contributing factors
+    result['contributing_factors'] = identify_contributing_factors(data, result['probability'])
+    
+    return result
+
+
+def predict_with_mcda(data):
+    """Make flood prediction using Multi-criteria Decision Analysis
+    
+    This function uses MCDA to evaluate flood risk based on multiple criteria.
+    
+    Args:
+        data (dict): Dictionary containing environmental conditions
+        
+    Returns:
+        dict: Prediction results including probability, impact assessment,
+              and contributing factors
+    """
+    logger.info("Making flood prediction using Multi-criteria Decision Analysis")
+    
+    if not ADVANCED_ALGORITHMS_AVAILABLE:
+        logger.warning("Advanced algorithms not available. Falling back to default model.")
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    # Initialize result
+    result = {
+        'probability': 0,
+        'hours_to_flood': None,
+        'severity_level': 1,
+        'severity_text': 'Advisory',
+        'impact': 'No significant flooding expected.',
+        'contributing_factors': [],
+        'model_used': 'mcda',
+        'prediction_details': {
+            'algorithm': 'Multi-criteria Decision Analysis',
+            'criteria_weights': {},
+            'normalized_factors': {}
+        }
+    }
+    
+    try:
+        # Create and configure MCDA analyzer
+        mcda = MultiCriteriaDecisionAnalyzer()
+        
+        # Map our data to MCDA input factors
+        rainfall_24h = data.get('rainfall_24h', 0)
+        if isinstance(rainfall_24h, dict) and 'total' in rainfall_24h:
+            rainfall_24h = rainfall_24h.get('total', 0)
+        
+        water_level = data.get('water_level', 0)
+        soil_saturation = data.get('soil_saturation', 50)
+        elevation = data.get('elevation', 30)
+        historical_floods = data.get('historical_floods_count', 0)
+        
+        # Create input factors for MCDA
+        mcda_factors = {
+            'rainfall_intensity': rainfall_24h,
+            'water_level': water_level,
+            'soil_saturation': soil_saturation,
+            'elevation': elevation,
+            'historical_floods': historical_floods,
+            'proximity_to_water': 50  # Default value (assuming medium proximity)
+        }
+        
+        # Perform MCDA analysis
+        mcda_result = mcda.analyze(mcda_factors)
+        
+        # Convert MCDA score to probability
+        result['probability'] = int(mcda_result['score'] * 100)
+        result['prediction_details']['criteria_weights'] = mcda.criteria
+        result['prediction_details']['normalized_factors'] = mcda_result['normalized_factors']
+        
+        # Map MCDA risk level to our severity scale
+        risk_level_map = {
+            'minimal': 1,
+            'low': 2,
+            'medium': 3,
+            'high': 4
+        }
+        result['severity_level'] = risk_level_map.get(mcda_result['risk_level'], 1)
+        
+        # Set severity text based on severity level
+        severity_text_map = {
+            1: 'Advisory',
+            2: 'Watch',
+            3: 'Warning',
+            4: 'Emergency',
+            5: 'Catastrophic'
+        }
+        result['severity_text'] = severity_text_map.get(result['severity_level'], 'Advisory')
+        
+        # Get weather to add hours to flood (if high risk)
+        if result['severity_level'] >= 3:
+            # Simplified formula using rainfall and water level
+            rain_factor = min(1, rainfall_24h / 50)
+            water_factor = min(1, water_level / 1.5)
+            soil_factor = min(1, soil_saturation / 100)
+            
+            # More intense rainfall, higher water level, more saturated soil = less time to flood
+            weighted_factor = (rain_factor * 0.5) + (water_factor * 0.3) + (soil_factor * 0.2)
+            hours_to_flood = max(0, 24 * (1 - weighted_factor))
+            result['hours_to_flood'] = round(hours_to_flood, 1)
+        
+        # Generate impact assessment
+        result['impact'] = generate_impact_assessment(result['probability'], result['hours_to_flood'])
+        
+        # Identify contributing factors
+        result['contributing_factors'] = identify_contributing_factors(data, result['probability'])
+        
+    except Exception as e:
+        logger.error(f"Error using MCDA for prediction: {str(e)}")
+        # Fall back to default model
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    return result
+
+
+def predict_with_dtw(data):
+    """Make flood prediction using Dynamic Time Warping pattern matching
+    
+    This function uses DTW to compare current patterns with historical flood events.
+    
+    Args:
+        data (dict): Dictionary containing environmental conditions
+        
+    Returns:
+        dict: Prediction results
+    """
+    logger.info("Making flood prediction using Dynamic Time Warping")
+    
+    if not ADVANCED_ALGORITHMS_AVAILABLE:
+        logger.warning("Advanced algorithms not available. Falling back to default model.")
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    # Initialize result
+    result = {
+        'probability': 0,
+        'hours_to_flood': None,
+        'severity_level': 1,
+        'severity_text': 'Advisory',
+        'impact': 'No significant flooding expected.',
+        'contributing_factors': [],
+        'model_used': 'dtw',
+        'prediction_details': {
+            'algorithm': 'Dynamic Time Warping',
+            'similar_patterns': []
+        }
+    }
+    
+    try:
+        # Try to load an existing DTW analyzer with historical patterns
+        dtw = DynamicTimeWarpingAnalyzer()
+        
+        # Create a pattern from current data
+        # For DTW we'd typically use time series data, but here we'll use a simplified approach
+        # Convert current data to a pattern representation
+        current_pattern = [
+            data.get('rainfall_24h', 0) if not isinstance(data.get('rainfall_24h', 0), dict) 
+            else data.get('rainfall_24h', {}).get('total', 0),
+            data.get('water_level', 0),
+            data.get('soil_saturation', 50),
+            data.get('temperature', 25),
+            data.get('humidity', 60)
+        ]
+        
+        # Generate some historical patterns for demonstration
+        # In a real system, these would come from a database of past events
+        if not hasattr(dtw, 'historical_patterns') or not dtw.historical_patterns:
+            # Generate some sample historical patterns
+            # High flooding patterns
+            dtw.add_pattern([40, 1.8, 90, 28, 85], {'flood_occurred': True, 'severity': 4, 'hours_to_flood': 5})
+            dtw.add_pattern([55, 2.0, 85, 27, 80], {'flood_occurred': True, 'severity': 5, 'hours_to_flood': 3})
+            dtw.add_pattern([35, 1.6, 95, 29, 90], {'flood_occurred': True, 'severity': 3, 'hours_to_flood': 8})
+            
+            # Medium flooding patterns
+            dtw.add_pattern([25, 1.2, 75, 26, 70], {'flood_occurred': True, 'severity': 2, 'hours_to_flood': 12})
+            dtw.add_pattern([30, 1.3, 70, 28, 65], {'flood_occurred': True, 'severity': 2, 'hours_to_flood': 15})
+            
+            # No flooding patterns
+            dtw.add_pattern([10, 0.6, 50, 30, 50], {'flood_occurred': False, 'severity': 0})
+            dtw.add_pattern([5, 0.5, 40, 32, 45], {'flood_occurred': False, 'severity': 0})
+            dtw.add_pattern([15, 0.8, 55, 29, 60], {'flood_occurred': False, 'severity': 1})
+        
+        # Find similar historical patterns
+        similar_patterns = dtw.find_similar_patterns(current_pattern, top_k=3)
+        
+        if similar_patterns:
+            # Extract information from similar patterns
+            flood_probabilities = []
+            severity_levels = []
+            flood_times = []
+            
+            # Calculate similarity-weighted values
+            total_similarity_weight = 0
+            
+            for i, (distance, pattern, metadata) in enumerate(similar_patterns):
+                # Convert distance to similarity (lower distance = higher similarity)
+                similarity = 1 / (1 + distance)  # Scale to 0-1 range
+                total_similarity_weight += similarity
+                
+                # Store pattern info for result details
+                result['prediction_details']['similar_patterns'].append({
+                    'similarity': round(similarity, 2),
+                    'flood_occurred': metadata.get('flood_occurred', False),
+                    'severity': metadata.get('severity', 0)
+                })
+                
+                # Add to our calculations with similarity weighting
+                if metadata.get('flood_occurred', False):
+                    flood_probabilities.append(similarity * 100)  # Scale to 0-100
+                else:
+                    flood_probabilities.append(similarity * 20)  # Lower base value for non-floods
+                
+                severity_levels.append(metadata.get('severity', 0) * similarity)
+                
+                if metadata.get('hours_to_flood') is not None:
+                    flood_times.append(metadata.get('hours_to_flood') * similarity)
+            
+            # Calculate weighted averages
+            if total_similarity_weight > 0:
+                result['probability'] = int(sum(flood_probabilities) / total_similarity_weight)
+                avg_severity = sum(severity_levels) / total_similarity_weight
+                result['severity_level'] = max(1, min(5, round(avg_severity)))
+                
+                if flood_times:
+                    result['hours_to_flood'] = round(sum(flood_times) / sum(similarity for _, _, m in similar_patterns 
+                                                                if m.get('hours_to_flood') is not None), 1)
+        else:
+            # No similar patterns found, use default values
+            result['probability'] = 15
+            logger.warning("No similar historical patterns found for DTW comparison")
+            
+        # Set severity text based on severity level
+        severity_text_map = {
+            1: 'Advisory',
+            2: 'Watch',
+            3: 'Warning',
+            4: 'Emergency',
+            5: 'Catastrophic'
+        }
+        result['severity_text'] = severity_text_map.get(result['severity_level'], 'Advisory')
+        
+        # Generate impact assessment
+        result['impact'] = generate_impact_assessment(result['probability'], result['hours_to_flood'])
+        
+        # Identify contributing factors
+        result['contributing_factors'] = identify_contributing_factors(data, result['probability'])
+        
+    except Exception as e:
+        logger.error(f"Error using DTW for prediction: {str(e)}")
+        # Fall back to default model
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    return result
+
+
+def predict_with_time_series(data):
+    """Make flood prediction using time series forecasting
+    
+    This function uses time series models like ARIMA to forecast flood-related variables.
+    
+    Args:
+        data (dict): Dictionary containing environmental conditions
+        
+    Returns:
+        dict: Prediction results
+    """
+    logger.info("Making flood prediction using time series forecasting")
+    
+    if not ADVANCED_ALGORITHMS_AVAILABLE:
+        logger.warning("Advanced algorithms not available. Falling back to default model.")
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    # Initialize result
+    result = {
+        'probability': 0,
+        'hours_to_flood': None,
+        'severity_level': 1,
+        'severity_text': 'Advisory',
+        'impact': 'No significant flooding expected.',
+        'contributing_factors': [],
+        'model_used': 'time_series',
+        'prediction_details': {
+            'algorithm': 'Time Series Forecasting',
+            'forecasts': {}
+        }
+    }
+    
+    try:
+        # Try to load existing time series models
+        rainfall_forecaster = TimeSeriesForecaster(method='arima')
+        water_level_forecaster = TimeSeriesForecaster(method='arima')
+        
+        # Attempt to make forecasts from current data
+        # In a real system, we'd have historical time series data available
+        # Here we'll use a simplified approach based on current values
+        
+        # Use current values to determine flood probability
+        rainfall_24h = data.get('rainfall_24h', 0)
+        if isinstance(rainfall_24h, dict) and 'total' in rainfall_24h:
+            rainfall_24h = rainfall_24h.get('total', 0)
+            
+        water_level = data.get('water_level', 0)
+        water_level_change = data.get('water_level_change_24h', 0)
+        soil_saturation = data.get('soil_saturation', 50)
+        
+        # Check for trends - are values increasing?
+        rainfall_trend = data.get('rainfall_trend', 0)  # Positive = increasing
+        water_level_trend = water_level_change if water_level_change is not None else 0
+        
+        # Simple forecast based on current values and trends
+        result['prediction_details']['forecasts']['rainfall_24h'] = rainfall_24h
+        result['prediction_details']['forecasts']['rainfall_trend'] = rainfall_trend
+        result['prediction_details']['forecasts']['water_level'] = water_level
+        result['prediction_details']['forecasts']['water_level_trend'] = water_level_trend
+        
+        # Project values forward
+        rainfall_24h_forecast = max(0, rainfall_24h + (rainfall_trend * 24))
+        water_level_forecast = max(0, water_level + (water_level_trend * 24))
+        
+        # Calculate flood probability from projected values
+        rainfall_factor = min(100, (rainfall_24h_forecast / 50) * 100)
+        water_level_factor = min(100, (water_level_forecast / 1.5) * 100)
+        soil_factor = min(100, soil_saturation)
+        
+        # Combine factors with weights
+        result['probability'] = int(
+            (rainfall_factor * 0.4) + 
+            (water_level_factor * 0.4) + 
+            (soil_factor * 0.2)
+        )
+        
+        # Determine time to flood based on trends
+        if result['probability'] >= 50 and water_level_trend > 0 and water_level < 1.5:
+            # Time to reach critical level (1.5m)
+            hours_to_critical = (1.5 - water_level) / water_level_trend
+            result['hours_to_flood'] = max(0, round(hours_to_critical, 1))
+        
+        # Determine severity level based on probability
+        if result['probability'] >= 85:
+            result['severity_level'] = 5
+            result['severity_text'] = 'Catastrophic'
+        elif result['probability'] >= 70:
+            result['severity_level'] = 4
+            result['severity_text'] = 'Emergency'
+        elif result['probability'] >= 55:
+            result['severity_level'] = 3
+            result['severity_text'] = 'Warning'
+        elif result['probability'] >= 40:
+            result['severity_level'] = 2
+            result['severity_text'] = 'Watch'
+        else:
+            result['severity_level'] = 1
+            result['severity_text'] = 'Advisory'
+        
+        # Generate impact assessment
+        result['impact'] = generate_impact_assessment(result['probability'], result['hours_to_flood'])
+        
+        # Identify contributing factors
+        result['contributing_factors'] = identify_contributing_factors(data, result['probability'])
+        
+    except Exception as e:
+        logger.error(f"Error using time series forecasting for prediction: {str(e)}")
+        # Fall back to default model
+        return predict_flood_probability(data, classification_algorithm='random_forest')
+    
+    return result
+
+
+def generate_impact_assessment(probability, hours_to_flood=None):
+    """Generate a descriptive impact assessment based on probability and time to flood
+    
+    Args:
+        probability (float): Flood probability percentage (0-100)
+        hours_to_flood (float, optional): Estimated hours until flooding occurs
+        
+    Returns:
+        str: Descriptive impact assessment
+    """
+    # Determine base impact statement based on probability
+    if probability >= 85:
+        impact = "Catastrophic flooding expected with severe infrastructure damage and potential loss of life. "
+        impact += "Immediate evacuation recommended for all residents in flood-prone areas."
+    elif probability >= 70:
+        impact = "Severe flooding expected with significant infrastructure impact. "
+        impact += "Evacuation recommended for vulnerable areas."
+    elif probability >= 55:
+        impact = "Moderate flooding likely. Some roads may be impassable and low-lying areas flooded. "
+        impact += "Prepare for possible evacuation if conditions worsen."
+    elif probability >= 40:
+        impact = "Possible minor flooding in low-lying areas. "
+        impact += "Monitor updates and prepare emergency supplies."
+    else:
+        impact = "No significant flooding expected. "
+        impact += "Continue to monitor weather conditions."
+    
+    # Add time-specific information if available
+    if hours_to_flood is not None:
+        if hours_to_flood < 1:
+            impact += f" Flooding is imminent or already occurring."
+        elif hours_to_flood < 3:
+            impact += f" Flooding expected within the next {hours_to_flood:.1f} hours."
+        elif hours_to_flood < 12:
+            impact += f" Potential flooding within {hours_to_flood:.1f} hours if conditions persist."
+        else:
+            impact += f" Be prepared for possible flooding in the next {hours_to_flood:.1f} hours to days."
+    
+    return impact
+
+
+def identify_contributing_factors(data, probability):
+    """Identify key environmental factors contributing to flood risk
+    
+    Args:
+        data (dict): Dictionary containing environmental conditions
+        probability (float): Calculated flood probability percentage
+        
+    Returns:
+        list: Descriptive list of contributing factors
+    """
+    factors = []
+    
+    # Only identify factors if data is a dictionary and probability is significant
+    if isinstance(data, dict) and probability > 15:
+        # Check rainfall - major contributor
+        rainfall_24h = data.get('rainfall_24h', 0)
+        if isinstance(rainfall_24h, dict) and 'total' in rainfall_24h:
+            rainfall_24h = rainfall_24h.get('total', 0)
+        
+        if rainfall_24h > 50:
+            factors.append(f"Extreme rainfall in the last 24 hours ({rainfall_24h:.1f}mm)")
+        elif rainfall_24h > 30:
+            factors.append(f"Heavy rainfall in the last 24 hours ({rainfall_24h:.1f}mm)")
+        elif rainfall_24h > 15 and probability > 30:
+            factors.append(f"Moderate rainfall in the last 24 hours ({rainfall_24h:.1f}mm)")
+        
+        # Check water level - major contributor
+        water_level = data.get('water_level', 0)
+        if water_level > 1.8:
+            factors.append(f"Critically high water level ({water_level:.2f}m)")
+        elif water_level > 1.2:
+            factors.append(f"Elevated water level ({water_level:.2f}m)")
+        elif water_level > 0.8 and probability > 30:
+            factors.append(f"Rising water level ({water_level:.2f}m)")
+        
+        # Check water level change - important trend indicator
+        water_level_change = data.get('water_level_change_24h', 0)
+        if water_level_change > 0.5:
+            factors.append(f"Rapidly rising water level (+{water_level_change:.2f}m in 24h)")
+        elif water_level_change > 0.2:
+            factors.append(f"Steadily rising water level (+{water_level_change:.2f}m in 24h)")
+        
+        # Check soil saturation - affects water absorption
+        soil_saturation = data.get('soil_saturation', 0)
+        if soil_saturation > 90:
+            factors.append("Extremely saturated soil severely limiting water absorption")
+        elif soil_saturation > 75:
+            factors.append("Highly saturated soil limiting water absorption")
+        elif soil_saturation > 60 and probability > 40:
+            factors.append("Moderately saturated soil reducing water absorption")
+        
+        # Check historical context - indicates geographical vulnerability
+        historical_floods = data.get('historical_floods_count', 0)
+        if historical_floods > 5:
+            factors.append("Area has history of frequent severe flooding")
+        elif historical_floods > 2:
+            factors.append("Area has experienced multiple floods in the past")
+        
+        # Check elevation - low elevation is vulnerable
+        elevation = data.get('elevation', None)
+        if elevation is not None and elevation < 10 and probability > 30:
+            factors.append(f"Low-lying area at {elevation}m elevation")
+    
+    # If no specific factors identified but probability is significant
+    if not factors and probability > 30:
+        factors.append("Multiple minor factors contributing to flood risk")
+    
+    return factors
 
 
 def get_affected_barangays(municipality_id=None, probability_threshold=50, 

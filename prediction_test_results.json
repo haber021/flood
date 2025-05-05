@@ -1,0 +1,29 @@
+{
+  "high_risk": {
+    "random_forest": {
+      "probability": 94,
+      "severity_level": 4,
+      "severity_text": "Emergency",
+      "hours_to_flood": 12.068870136705634,
+      "contributing_factors_count": 4
+    }
+  },
+  "medium_risk": {
+    "random_forest": {
+      "probability": 84,
+      "severity_level": 3,
+      "severity_text": "Warning",
+      "hours_to_flood": 22.42515752721556,
+      "contributing_factors_count": 1
+    }
+  },
+  "low_risk": {
+    "random_forest": {
+      "probability": 46,
+      "severity_level": 1,
+      "severity_text": "Advisory",
+      "hours_to_flood": null,
+      "contributing_factors_count": 1
+    }
+  }
+}
