@@ -47,8 +47,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const mapContainer = document.getElementById('flood-map');
     if (!mapContainer) return;
     
-    // Initialize the map (centered on Vical, Santa Lucia, Ilocos Sur as default)
-    floodMap = L.map('flood-map').setView([17.135678, 120.437203], 14);
+    // Initialize the map centered on Ilocos Sur region
+    floodMap = L.map('flood-map').setView([17.3, 120.43], 9); // Wider initial view to see all of Ilocos Sur
     
     // Add tile layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize layer groups
     riskZonesLayer = L.layerGroup().addTo(floodMap);
     sensorsLayer = L.layerGroup();
-    barangaysLayer = L.layerGroup();
+    barangaysLayer = L.layerGroup().addTo(floodMap); // Add barangays layer by default
     heatmapLayer = L.layerGroup();
     
     // Setup controls
@@ -1272,6 +1272,9 @@ function loadMunicipalityData() {
                 // Update the municipality selector
                 setupMunicipalitySelector();
                 
+                // Display all municipalities on the map
+                displayAllMunicipalities();
+                
                 // Preload barangays using the all-barangays endpoint instead
                 preloadAllIlocosSurBarangays();
                 
@@ -1283,6 +1286,65 @@ function loadMunicipalityData() {
                 reject(error);
             });
     });
+}
+
+/**
+ * Display all municipalities on the map
+ */
+function displayAllMunicipalities() {
+    if (!floodMap || allMunicipalities.length === 0) return;
+    
+    console.log(`[Map] Displaying all ${allMunicipalities.length} municipalities of Ilocos Sur`);
+    
+    // Create a group for all municipality markers
+    const municipalityMarkersGroup = L.layerGroup().addTo(floodMap);
+    
+    // Create markers for each municipality
+    allMunicipalities.forEach(municipality => {
+        if (municipality.latitude && municipality.longitude) {
+            // Create a marker with a custom icon
+            const marker = L.marker([municipality.latitude, municipality.longitude], {
+                icon: L.divIcon({
+                    className: 'municipality-marker',
+                    html: `<div style="background-color: #0d6efd; width: 15px; height: 15px; border-radius: 50%; 
+                            border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5);"></div>`,
+                    iconSize: [15, 15],
+                    iconAnchor: [7.5, 7.5]
+                })
+            }).addTo(municipalityMarkersGroup);
+            
+            // Add a popup with municipality info
+            marker.bindPopup(`
+                <strong>${municipality.name}</strong><br>
+                Province: ${municipality.province}<br>
+                Population: ${municipality.population.toLocaleString()}<br>
+                Contact: ${municipality.contact_person || 'N/A'}
+            `);
+            
+            // Add click event to select this municipality
+            marker.on('click', function() {
+                // Update the municipality selector
+                const municipalitySelector = document.getElementById('municipality-selector');
+                if (municipalitySelector) {
+                    municipalitySelector.value = municipality.id;
+                    
+                    // Trigger the change event
+                    const event = new Event('change');
+                    municipalitySelector.dispatchEvent(event);
+                }
+            });
+        }
+    });
+    
+    // Calculate bounds to fit all municipalities
+    const municipalityPoints = allMunicipalities
+        .filter(m => m.latitude && m.longitude)
+        .map(m => [m.latitude, m.longitude]);
+    
+    if (municipalityPoints.length > 0) {
+        const bounds = L.latLngBounds(municipalityPoints);
+        floodMap.fitBounds(bounds, { padding: [50, 50] });
+    }
 }
 
 /**
@@ -1345,6 +1407,9 @@ function preloadAllIlocosSurBarangays() {
                 
                 // Update the barangay selector with the new data
                 setupBarangaySelector();
+                
+                // Display all barangays on the map
+                displayAllIlocosSurBarangays();
                 
                 // If we had a saved barangay selection, restore it
                 const savedBarangayId = sessionStorage.getItem('selectedBarangayId');
@@ -1565,5 +1630,69 @@ function focusOnBarangay(barangay) {
         }
         
         animateHighlight();
+    }
+}
+
+/**
+ * Display all barangays from Ilocos Sur on the map
+ */
+function displayAllIlocosSurBarangays() {
+    if (allBarangays.length === 0) {
+        console.log("[Map] No barangays available to display yet");
+        return;
+    }
+    
+    console.log(`[Map] Displaying all ${allBarangays.length} barangays from Ilocos Sur`);
+    
+    // Clear previous barangay markers
+    barangaysLayer.clearLayers();
+    barangayMarkers = {};
+    
+    // Process each barangay
+    allBarangays.forEach(barangay => {
+        // Skip if no valid coordinates
+        if (!barangay.latitude || !barangay.longitude) return;
+        
+        const lat = parseFloat(barangay.latitude);
+        const lng = parseFloat(barangay.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
+        
+        // Save coordinates for later use
+        barangay.lat = lat;
+        barangay.lng = lng;
+        
+        // Use smaller markers for the overview to avoid clutter
+        const marker = L.circleMarker([lat, lng], {
+            radius: 5,
+            color: '#0d6efd',
+            fillColor: '#0d6efd',
+            fillOpacity: 0.7,
+            weight: 1
+        }).addTo(barangaysLayer);
+        
+        // Add popup with information
+        marker.bindPopup(`
+            <div class="barangay-popup">
+                <h5>${barangay.name}</h5>
+                <p>Municipality: ${barangay.municipality_name}</p>
+                <p>Population: ${barangay.population ? barangay.population.toLocaleString() : 'N/A'}</p>
+                <button class="btn btn-sm btn-primary" onclick="highlightBarangay(${barangay.id})">
+                    View Details
+                </button>
+            </div>
+        `);
+        
+        // Store reference to marker for later use
+        barangayMarkers[barangay.id] = marker;
+    });
+    
+    // Calculate bounds to fit all barangays
+    const barangayPoints = allBarangays
+        .filter(b => b.latitude && b.longitude)
+        .map(b => [parseFloat(b.latitude), parseFloat(b.longitude)]);
+    
+    if (barangayPoints.length > 0) {
+        const bounds = L.latLngBounds(barangayPoints);
+        floodMap.fitBounds(bounds, { padding: [50, 50] });
     }
 }
