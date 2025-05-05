@@ -1703,3 +1703,206 @@ function displayAllIlocosSurBarangays() {
         floodMap.fitBounds(bounds, { padding: [50, 50] });
     }
 }
+
+/**
+ * Fetch active flood alerts for the current location
+ */
+function fetchFloodAlertsForCurrentLocation() {
+    // Clear previous affected barangay tracking
+    floodAffectedBarangays.clear();
+    barangayAlertDetails = {};
+    
+    // Construct URL with appropriate filters
+    let url = '/api/flood-alerts/?active=true';
+    
+    // Add location parameters if available
+    if (window.selectedMunicipality) {
+        url += `&municipality_id=${window.selectedMunicipality.id}`;
+        console.log(`[Alerts] Checking for flood alerts in ${window.selectedMunicipality.name}`);
+    }
+    
+    if (window.selectedBarangay) {
+        url += `&barangay_id=${window.selectedBarangay.id}`;
+    }
+    
+    // Fetch active alerts
+    fetch(url, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.results && data.results.length > 0) {
+            console.log(`[Alerts] Found ${data.results.length} active flood alerts`);
+            
+            // Process the alerts to gather affected barangays
+            processFloodAlerts(data.results);
+        } else {
+            console.log('[Alerts] No active flood alerts for the current location');
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching flood alerts:', error);
+    });
+}
+
+/**
+ * Process flood alerts to track affected barangays
+ */
+function processFloodAlerts(alerts) {
+    // Get the full details of each alert
+    alerts.forEach(alert => {
+        // Need to fetch complete details including affected_barangays
+        fetch(`/api/flood-alerts/${alert.id}/`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(alertDetail => {
+            if (alertDetail.affected_barangays && alertDetail.affected_barangays.length > 0) {
+                console.log(`[Alerts] Alert ${alertDetail.id} affects ${alertDetail.affected_barangays.length} barangays`);
+                
+                // Add affected barangays to our tracking set
+                alertDetail.affected_barangays.forEach(barangayId => {
+                    floodAffectedBarangays.add(barangayId);
+                    
+                    // Store the highest severity alert for this barangay
+                    if (!barangayAlertDetails[barangayId] || 
+                        alertDetail.severity_level > barangayAlertDetails[barangayId].severity_level) {
+                        
+                        // Determine alert color based on severity
+                        let alertClass = 'alert-info';
+                        let severityText = 'Advisory';
+                        
+                        switch (alertDetail.severity_level) {
+                            case 5:
+                                alertClass = 'alert-danger';
+                                severityText = 'CATASTROPHIC';
+                                break;
+                            case 4:
+                                alertClass = 'alert-danger';
+                                severityText = 'EMERGENCY';
+                                break;
+                            case 3:
+                                alertClass = 'alert-warning';
+                                severityText = 'WARNING';
+                                break;
+                            case 2:
+                                alertClass = 'alert-warning';
+                                severityText = 'WATCH';
+                                break;
+                            case 1:
+                                alertClass = 'alert-info';
+                                severityText = 'ADVISORY';
+                                break;
+                        }
+                        
+                        barangayAlertDetails[barangayId] = {
+                            severity_level: alertDetail.severity_level,
+                            alert_title: alertDetail.title,
+                            severity_text: severityText,
+                            alert_class: alertClass
+                        };
+                    }
+                });
+                
+                // Apply the visual highlighting to affected barangays
+                highlightFloodAffectedBarangays();
+            }
+        })
+        .catch(error => {
+            console.error(`Error fetching details for alert ${alert.id}:`, error);
+        });
+    });
+}
+
+/**
+ * Highlight all barangays affected by active flood alerts
+ */
+function highlightFloodAffectedBarangays() {
+    if (floodAffectedBarangays.size === 0) {
+        console.log('[Alerts] No affected barangays to highlight');
+        return;
+    }
+    
+    console.log(`[Alerts] Highlighting ${floodAffectedBarangays.size} flood-affected barangays on the map`);
+    
+    // Iterate through all barangay markers
+    Object.keys(barangayMarkers).forEach(barangayId => {
+        const barangayIdInt = parseInt(barangayId);
+        const marker = barangayMarkers[barangayId];
+        
+        if (floodAffectedBarangays.has(barangayIdInt)) {
+            // Get alert details for this barangay
+            const alertDetail = barangayAlertDetails[barangayIdInt];
+            if (!alertDetail) return;
+            
+            // Determine highlight color based on severity
+            let highlightColor;
+            switch (alertDetail.severity_level) {
+                case 5:
+                case 4:
+                    highlightColor = '#dc3545'; // Red (danger)
+                    break;
+                case 3:
+                case 2:
+                    highlightColor = '#ffc107'; // Yellow (warning)
+                    break;
+                default:
+                    highlightColor = '#0dcaf0'; // Light blue (info)
+            }
+            
+            // Create a pulsing circle effect for the marker
+            if (!marker._pulsingCircle) {
+                const pulsingCircle = L.circleMarker([marker._latlng.lat, marker._latlng.lng], {
+                    radius: 30,
+                    color: highlightColor,
+                    fillColor: highlightColor,
+                    fillOpacity: 0.3,
+                    weight: 2
+                }).addTo(barangaysLayer);
+                
+                // Store a reference to the pulsing circle
+                marker._pulsingCircle = pulsingCircle;
+                
+                // Create pulsing animation
+                let size = 30;
+                let increasing = false;
+                const pulseInterval = setInterval(() => {
+                    if (size >= 40) increasing = false;
+                    if (size <= 25) increasing = true;
+                    
+                    size += increasing ? 1 : -1;
+                    pulsingCircle.setRadius(size);
+                    
+                    // Clear interval if marker is removed from map
+                    if (!barangaysLayer.hasLayer(pulsingCircle)) {
+                        clearInterval(pulseInterval);
+                    }
+                }, 50);
+                
+                // Update the marker's popup to show the active alert
+                const existingPopupContent = marker.getPopup().getContent();
+                const alertSection = `
+                    <div class="alert ${alertDetail.alert_class} mt-2 mb-0 py-2">
+                        <strong>${alertDetail.severity_text}:</strong> ${alertDetail.alert_title}
+                    </div>
+                `;
+                
+                // Check if popup content already has an alert (to avoid duplicates)
+                if (!existingPopupContent.includes('alert alert-')) {
+                    marker.getPopup().setContent(existingPopupContent + alertSection);
+                }
+            }
+        }
+    });
+}
