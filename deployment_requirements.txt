@@ -1,7 +1,8 @@
 django==5.2
 djangorestframework==3.16.0
 dj-database-url==2.3.0
-psycopg2-binary==2.9.10
+mysqlclient==2.2.4
+pyMySQL==1.1.0
 numpy==1.26.3
 pandas==2.2.1
 scikit-learn==1.4.1
