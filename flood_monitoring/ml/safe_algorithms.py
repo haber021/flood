@@ -279,9 +279,10 @@ class DynamicTimeWarpingAnalyzer:
 class TimeSeriesForecaster:
     """Simplified Time Series Forecasting implementation"""
     
-    def __init__(self):
+    def __init__(self, method='arima'):
         self.name = "Time Series Forecaster (Safe Implementation)"
-        logger.info(f"Initializing {self.name}")
+        self.method = method  # Can be 'arima' or 'exponential_smoothing'
+        logger.info(f"Initializing {self.name} with method: {method}")
     
     def forecast_arima(self, series, steps=1):
         """Simple forecasting function that uses trend extrapolation"""

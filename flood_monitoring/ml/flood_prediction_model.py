@@ -542,8 +542,19 @@ def predict_flood_probability(data, classification_algorithm=DEFAULT_CLASSIFICAT
         if classification_algorithm in ['gradient_boosting', 'svm'] and ADVANCED_ALGORITHMS_AVAILABLE:
             # These advanced models return prediction and probability
             try:
-                _, probability_array = classification_model.predict(X)
-                probability = float(probability_array[0]) * 100  # Convert to percentage
+                prediction_result = classification_model.predict(X)
+                
+                # Handle different return formats from different implementations
+                if isinstance(prediction_result, tuple) and len(prediction_result) == 2:
+                    # Standard format: (predictions, probabilities)
+                    predictions, probability_value = prediction_result
+                    probability = float(probability_value) * 100 if isinstance(probability_value, (float, int)) else 15
+                elif isinstance(prediction_result, list) and len(prediction_result) == 2:
+                    # Alternative format: [predictions, probability]
+                    probability = float(prediction_result[1]) * 100 if isinstance(prediction_result[1], (float, int)) else 15
+                else:
+                    # Fallback for any other return format
+                    probability = 15
             except Exception as e:
                 logger.error(f"Error making prediction with advanced model: {str(e)}")
                 probability = 15  # Default if prediction fails
