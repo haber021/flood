@@ -485,15 +485,40 @@ def compare_prediction_algorithms(request):
         'default_algorithm': DEFAULT_CLASSIFICATION_ALGORITHM
     })
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([permissions.AllowAny])
 def flood_prediction(request):
     """API endpoint for flood prediction based on real-time sensor data using ML models"""
     
-    # Get location filters from request parameters
-    municipality_id = request.GET.get('municipality_id', None)
-    barangay_id = request.GET.get('barangay_id', None)
-    algorithm = request.GET.get('algorithm', None)  # Get algorithm selection if provided
+    # Get parameters from request (either GET or POST)
+    if request.method == 'POST':
+        # Get data from POST request body
+        municipality_id = request.data.get('municipality_id', None)
+        barangay_id = request.data.get('barangay_id', None)
+        algorithm = request.data.get('algorithm', None)
+        # If user submitted actual prediction data directly, use that instead of sensors
+        user_prediction_data = {
+            'rainfall_24h': request.data.get('rainfall_24h'),
+            'rainfall_48h': request.data.get('rainfall_48h'),
+            'rainfall_7d': request.data.get('rainfall_7d'),
+            'water_level': request.data.get('water_level'),
+            'water_level_change_24h': request.data.get('water_level_change_24h'),
+            'temperature': request.data.get('temperature'),
+            'humidity': request.data.get('humidity'),
+            'soil_saturation': request.data.get('soil_saturation'),
+            'elevation': request.data.get('elevation'),
+            'month': request.data.get('month'),
+            'day_of_year': request.data.get('day_of_year'),
+            'historical_floods_count': request.data.get('historical_floods_count')
+        }
+        # Remove None values
+        user_prediction_data = {k: v for k, v in user_prediction_data.items() if v is not None}
+    else:
+        # Get data from GET parameters
+        municipality_id = request.GET.get('municipality_id', None)
+        barangay_id = request.GET.get('barangay_id', None)
+        algorithm = request.GET.get('algorithm', None)  # Get algorithm selection if provided
+        user_prediction_data = {}
     
     # Query filters to apply to sensor data
     sensor_filters = {}
