@@ -670,6 +670,9 @@ function processSensors(sensors) {
  * Process and display affected barangays
  */
 function processBarangays(barangays) {
+    // First, save references to any highlighted barangay
+    const selectedBarangayId = window.selectedBarangay ? window.selectedBarangay.id : null;
+    
     // Clear previous layers
     barangaysLayer.clearLayers();
     barangayMarkers = {};
@@ -744,8 +747,13 @@ function processBarangays(barangays) {
     setupBarangaySelector();
     
     // If a barangay was previously selected, highlight it again
-    if (selectedBarangay) {
-        highlightSelectedBarangay(selectedBarangay);
+    if (window.selectedBarangay) {
+        // Find the updated barangay object that matches our selected ID
+        const updatedBarangay = allBarangays.find(b => b.id === selectedBarangayId);
+        if (updatedBarangay) {
+            console.log(`[Map] Re-highlighting previously selected barangay: ${updatedBarangay.name}`);
+            highlightSelectedBarangay(updatedBarangay);
+        }
     }
     
     // Update the barangay count in the UI
@@ -1541,7 +1549,8 @@ function highlightSelectedBarangay(barangay) {
     const marker = barangayMarkers[barangay.id];
     if (marker) {
         // Create a pulsing circle around the marker
-        const pulsingCircle = L.circle([barangay.lat, barangay.lng], {
+        // Use marker's position instead of barangay lat/lng to ensure consistent positioning
+        const pulsingCircle = L.circle([marker._latlng.lat, marker._latlng.lng], {
             color: '#FFC107',
             fillColor: '#FFC107',
             fillOpacity: 0.3,
@@ -1594,6 +1603,8 @@ function highlightBarangay(barangayId) {
     } else {
         // If dropdown doesn't exist, set the global directly and focus
         window.selectedBarangay = barangay;
+        // Since we're directly setting the global, highlight the barangay
+        highlightSelectedBarangay(barangay);
         focusOnBarangay(barangay);
     }
 }
