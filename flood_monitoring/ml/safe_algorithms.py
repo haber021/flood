@@ -54,11 +54,18 @@ class GradientBoostingFloodPredictor:
             probability = (rainfall_factor * 0.5) + (water_factor * 0.3) + (soil_factor * 0.2)
             probability = max(0, min(100, probability)) / 100  # Convert to 0-1 range
             
-            return 1 if probability > 0.5 else 0, probability
+            return [1 if probability > 0.5 else 0], probability
         else:
             # Basic processing for dataframe or numpy array
             # Simple implementation that returns medium probability
-            return 0, 0.4  # Default: Not flood, 40% probability
+            import numpy as np
+            try:
+                # If X is a numpy array or pandas DataFrame, return array of predictions
+                size = len(X) if hasattr(X, '__len__') else 1
+                return np.array([0] * size), 0.4  # Default: Not flood, 40% probability
+            except:
+                # Fallback for any other case
+                return [0], 0.4  # Default: Not flood, 40% probability
     
     def save(self, filename=None):
         """Save the model (simulation)"""
@@ -106,11 +113,18 @@ class SVMFloodPredictor:
             else:
                 probability = 0.2  # 20% probability
             
-            return 1 if probability > 0.5 else 0, probability
+            return [1 if probability > 0.5 else 0], probability
         else:
             # Basic processing for dataframe or numpy array
             # Simple implementation that returns medium probability
-            return 0, 0.35  # Default: Not flood, 35% probability
+            import numpy as np
+            try:
+                # If X is a numpy array or pandas DataFrame, return array of predictions
+                size = len(X) if hasattr(X, '__len__') else 1
+                return np.array([0] * size), 0.35  # Default: Not flood, 35% probability
+            except:
+                # Fallback for any other case
+                return [0], 0.35  # Default: Not flood, 35% probability
     
     def save(self, filename=None):
         """Save the model (simulation)"""
@@ -250,6 +264,16 @@ class DynamicTimeWarpingAnalyzer:
             })
         
         return results
+        
+    def save(self, filename=None):
+        """Save the model (simulation)"""
+        logger.info(f"Simulating save for {self.name}")
+        return
+    
+    def load(self, filename=None):
+        """Load the model (simulation)"""
+        logger.info(f"Simulating load for {self.name}")
+        return self
 
 
 class TimeSeriesForecaster:
@@ -293,3 +317,13 @@ class TimeSeriesForecaster:
         forecast = [last_smoothed] * steps
         
         return forecast
+        
+    def save(self, filename=None):
+        """Save the model (simulation)"""
+        logger.info(f"Simulating save for {self.name}")
+        return
+    
+    def load(self, filename=None):
+        """Load the model (simulation)"""
+        logger.info(f"Simulating load for {self.name}")
+        return self

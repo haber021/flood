@@ -1,10 +1,10 @@
 {
   "high_risk": {
     "random_forest": {
-      "probability": 93,
-      "severity_level": 4,
-      "severity_text": "Emergency",
-      "hours_to_flood": 12.188323697872372,
+      "probability": 97,
+      "severity_level": 5,
+      "severity_text": "Catastrophic",
+      "hours_to_flood": 11.428580328092828,
       "contributing_factors_count": 4
     },
     "gradient_boosting": {
@@ -22,10 +22,10 @@
       "contributing_factors_count": 4
     },
     "ensemble": {
-      "probability": 46,
+      "probability": 48,
       "severity_level": 2,
       "severity_text": "Watch",
-      "hours_to_flood": 12.2,
+      "hours_to_flood": 11.4,
       "contributing_factors_count": 5
     },
     "mcda": {
@@ -36,26 +36,26 @@
       "contributing_factors_count": 5
     },
     "dtw": {
-      "probability": 93,
-      "severity_level": 4,
-      "severity_text": "Emergency",
-      "hours_to_flood": 12.188323697872372,
+      "probability": 97,
+      "severity_level": 5,
+      "severity_text": "Catastrophic",
+      "hours_to_flood": 11.428580328092828,
       "contributing_factors_count": 4
     },
     "time_series": {
-      "probability": 93,
-      "severity_level": 4,
-      "severity_text": "Emergency",
-      "hours_to_flood": 12.188323697872372,
+      "probability": 97,
+      "severity_level": 5,
+      "severity_text": "Catastrophic",
+      "hours_to_flood": 11.428580328092828,
       "contributing_factors_count": 4
     }
   },
   "medium_risk": {
     "random_forest": {
-      "probability": 84,
-      "severity_level": 3,
-      "severity_text": "Warning",
-      "hours_to_flood": 22.39154591421615,
+      "probability": 88,
+      "severity_level": 4,
+      "severity_text": "Emergency",
+      "hours_to_flood": 20.070875343714814,
       "contributing_factors_count": 1
     },
     "gradient_boosting": {
@@ -73,10 +73,10 @@
       "contributing_factors_count": 1
     },
     "ensemble": {
-      "probability": 43,
+      "probability": 44,
       "severity_level": 2,
       "severity_text": "Watch",
-      "hours_to_flood": 22.4,
+      "hours_to_flood": 20.1,
       "contributing_factors_count": 3
     },
     "mcda": {
@@ -87,17 +87,17 @@
       "contributing_factors_count": 3
     },
     "dtw": {
-      "probability": 84,
-      "severity_level": 3,
-      "severity_text": "Warning",
-      "hours_to_flood": 22.39154591421615,
+      "probability": 88,
+      "severity_level": 4,
+      "severity_text": "Emergency",
+      "hours_to_flood": 20.070875343714814,
       "contributing_factors_count": 1
     },
     "time_series": {
-      "probability": 84,
-      "severity_level": 3,
-      "severity_text": "Warning",
-      "hours_to_flood": 22.39154591421615,
+      "probability": 88,
+      "severity_level": 4,
+      "severity_text": "Emergency",
+      "hours_to_flood": 20.070875343714814,
       "contributing_factors_count": 1
     }
   },
