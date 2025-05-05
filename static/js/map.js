@@ -1742,10 +1742,23 @@ function fetchFloodAlertsForCurrentLocation() {
         if (data.results && data.results.length > 0) {
             console.log(`[Alerts] Found ${data.results.length} active flood alerts`);
             
+            // If there's an active alert banner, show it
+            document.querySelectorAll('.active-flood-alert').forEach(banner => {
+                banner.classList.remove('d-none');
+            });
+            
             // Process the alerts to gather affected barangays
             processFloodAlerts(data.results);
         } else {
             console.log('[Alerts] No active flood alerts for the current location');
+            
+            // Hide alert banners if no active alerts
+            document.querySelectorAll('.active-flood-alert').forEach(banner => {
+                banner.classList.add('d-none');
+            });
+            
+            // Show 'no affected barangays' message
+            updateAffectedBarangaysDisplay([]);
         }
     })
     .catch(error => {
@@ -1758,9 +1771,12 @@ function fetchFloodAlertsForCurrentLocation() {
  */
 function processFloodAlerts(alerts) {
     // Get the full details of each alert
+    let alertPromises = [];
+    
+    // Create promises for each alert
     alerts.forEach(alert => {
         // Need to fetch complete details including affected_barangays
-        fetch(`/api/flood-alerts/${alert.id}/`, {
+        const alertPromise = fetch(`/api/flood-alerts/${alert.id}/`, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json'
@@ -1815,13 +1831,39 @@ function processFloodAlerts(alerts) {
                     }
                 });
                 
-                // Apply the visual highlighting to affected barangays
-                highlightFloodAffectedBarangays();
+                return alertDetail; // Return for Promise.all
             }
+            return null;
         })
         .catch(error => {
             console.error(`Error fetching details for alert ${alert.id}:`, error);
+            return null;
         });
+        
+        alertPromises.push(alertPromise);
+    });
+    
+    // When all alerts are processed, update the UI
+    Promise.all(alertPromises).then(() => {
+        if (floodAffectedBarangays.size > 0) {
+            console.log(`[Alerts] Processing complete. ${floodAffectedBarangays.size} barangays affected by floods`);
+            // Apply the visual highlighting to affected barangays
+            highlightFloodAffectedBarangays();
+            
+            // Update alert status in UI
+            const alertStatusGauge = document.getElementById('alert-status-gauge');
+            if (alertStatusGauge) {
+                alertStatusGauge.setAttribute('data-value', '1'); // Set to danger state
+                alertStatusGauge.style.setProperty('--gauge-value', 1);
+                const statusNameEl = alertStatusGauge.querySelector('.gauge-value');
+                if (statusNameEl) statusNameEl.textContent = 'Alert Active';
+                const statusIconEl = alertStatusGauge.querySelector('.gauge-icon');
+                if (statusIconEl) statusIconEl.innerHTML = '<i class="fas fa-exclamation-triangle text-danger"></i>';
+            }
+        } else {
+            console.log('[Alerts] No barangays affected by floods');
+            updateAffectedBarangaysDisplay([]);
+        }
     });
 }
 
@@ -1831,10 +1873,14 @@ function processFloodAlerts(alerts) {
 function highlightFloodAffectedBarangays() {
     if (floodAffectedBarangays.size === 0) {
         console.log('[Alerts] No affected barangays to highlight');
+        updateAffectedBarangaysDisplay([]);
         return;
     }
     
     console.log(`[Alerts] Highlighting ${floodAffectedBarangays.size} flood-affected barangays on the map`);
+    
+    // Build a list of affected barangays with their details
+    let affectedBarangaysList = [];
     
     // Iterate through all barangay markers
     Object.keys(barangayMarkers).forEach(barangayId => {
@@ -1845,6 +1891,19 @@ function highlightFloodAffectedBarangays() {
             // Get alert details for this barangay
             const alertDetail = barangayAlertDetails[barangayIdInt];
             if (!alertDetail) return;
+            
+            // Find the barangay details
+            const barangay = allBarangays.find(b => b.id === barangayIdInt);
+            if (barangay) {
+                // Add to the affected list with alert details
+                affectedBarangaysList.push({
+                    id: barangay.id,
+                    name: barangay.name,
+                    municipality_name: barangay.municipality_name,
+                    population: barangay.population,
+                    alert: alertDetail
+                });
+            }
             
             // Determine highlight color based on severity
             let highlightColor;
@@ -1905,4 +1964,90 @@ function highlightFloodAffectedBarangays() {
             }
         }
     });
+    
+    // Update the dashboard with affected barangays
+    updateAffectedBarangaysDisplay(affectedBarangaysList);
+}
+
+/**
+ * Update the dashboard to show affected barangays
+ */
+function updateAffectedBarangaysDisplay(affectedBarangays) {
+    const noAffectedBarangaysEl = document.getElementById('no-affected-barangays');
+    const affectedBarangaysListEl = document.getElementById('affected-barangays-list');
+    const barangayCardsEl = document.getElementById('barangay-cards');
+    
+    if (!noAffectedBarangaysEl || !affectedBarangaysListEl || !barangayCardsEl) {
+        // Dashboard elements not found (might be on a different page)
+        return;
+    }
+    
+    if (!affectedBarangays || affectedBarangays.length === 0) {
+        // No affected barangays, show the empty state
+        noAffectedBarangaysEl.classList.remove('d-none');
+        affectedBarangaysListEl.classList.add('d-none');
+        return;
+    }
+    
+    // We have affected barangays to display
+    noAffectedBarangaysEl.classList.add('d-none');
+    affectedBarangaysListEl.classList.remove('d-none');
+    
+    // Clear existing cards
+    barangayCardsEl.innerHTML = '';
+    
+    // Add cards for each affected barangay
+    affectedBarangays.forEach(barangay => {
+        const cardHtml = `
+            <div class="col">
+                <div class="card h-100 border-${getSeverityCardClass(barangay.alert.severity_level)}">
+                    <div class="card-header bg-${getSeverityCardClass(barangay.alert.severity_level)} text-white">
+                        <h6 class="mb-0"><strong>${barangay.name}</strong></h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text"><strong>Municipality:</strong> ${barangay.municipality_name}</p>
+                        <p class="card-text"><strong>Population:</strong> ${barangay.population?.toLocaleString() || 'Unknown'}</p>
+                        <p class="card-text"><span class="badge bg-${getSeverityCardClass(barangay.alert.severity_level)}">
+                            ${barangay.alert.severity_text}
+                        </span></p>
+                        <p class="card-text">${barangay.alert.alert_title}</p>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-sm btn-outline-primary w-100" 
+                            onclick="focusOnBarangayById(${barangay.id})">
+                            <i class="fas fa-map-marker-alt me-1"></i> Show on Map
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        barangayCardsEl.innerHTML += cardHtml;
+    });
+}
+
+/**
+ * Get card color class based on severity level
+ */
+function getSeverityCardClass(severityLevel) {
+    switch (severityLevel) {
+        case 5:
+        case 4:
+            return 'danger';
+        case 3:
+        case 2:
+            return 'warning';
+        default:
+            return 'info';
+    }
+}
+
+/**
+ * Focus on a barangay by ID
+ */
+function focusOnBarangayById(barangayId) {
+    const barangay = allBarangays.find(b => b.id === barangayId);
+    if (barangay) {
+        focusOnBarangay(barangay);
+    }
 }
