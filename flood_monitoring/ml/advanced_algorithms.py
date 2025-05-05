@@ -78,6 +78,925 @@ class GradientBoostingFloodPredictor:
         
         # Evaluate the model
         y_pred = self.model.predict(X_test)
+        
+    def predict(self, X):
+        """Predict flood risk using the trained model"""
+        if self.model is None:
+            raise ValueError("Model not trained yet. Call train() first.")
+        
+        # Scale input data
+        X_scaled = self.scaler.transform(X)
+        
+        # Make predictions
+        predictions = self.model.predict(X_scaled)
+        probabilities = self.model.predict_proba(X_scaled)[:, 1]  # Probability of positive class
+        
+        return predictions, probabilities
+    
+    def save(self, model_path=None):
+        """Save the trained model and scaler to disk"""
+        if self.model is None:
+            raise ValueError("Model not trained yet. Cannot save.")
+        
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'gbm_flood_model.joblib')
+        
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Save model and scaler together
+        joblib.dump({'model': self.model, 'scaler': self.scaler}, model_path)
+        logger.info(f"Saved GBM model to {model_path}")
+    
+    def load(self, model_path=None):
+        """Load the model and scaler from disk"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'gbm_flood_model.joblib')
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Load model and scaler
+        saved_data = joblib.load(model_path)
+        self.model = saved_data['model']
+        self.scaler = saved_data['scaler']
+        logger.info(f"Loaded GBM model from {model_path}")
+
+
+class SVMFloodPredictor:
+    """Support Vector Machine for flood prediction
+    
+    Uses SVM with RBF kernel to classify flood risk based on environmental factors.
+    """
+    
+    def __init__(self):
+        self.model = None
+        self.scaler = StandardScaler()
+        self.param_grid = {
+            'C': [0.1, 1, 10, 100],
+            'gamma': ['scale', 'auto', 0.01, 0.1, 1],
+            'kernel': ['rbf', 'poly'],
+            'probability': [True]
+        }
+    
+    def train(self, X, y):
+        """Train the SVM model with hyperparameter tuning"""
+        logger.info("Training SVM model with grid search...")
+        X_scaled = self.scaler.fit_transform(X)
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+        
+        # Use GridSearchCV for hyperparameter tuning
+        # Note: smaller subset for parameter search due to SVM training time
+        grid_search = GridSearchCV(SVC(probability=True), 
+                                  self.param_grid, 
+                                  cv=3, 
+                                  scoring='f1',
+                                  n_jobs=-1)
+        grid_search.fit(X_train, y_train)
+        
+        # Get the best model
+        self.model = grid_search.best_estimator_
+        logger.info(f"Best parameters found: {grid_search.best_params_}")
+        
+        # Evaluate the model
+        y_pred = self.model.predict(X_test)
+        logger.info(f"Classification report:\n{classification_report(y_test, y_pred)}")
+    
+    def predict(self, X):
+        """Predict flood risk using the trained SVM model"""
+        if self.model is None:
+            raise ValueError("Model not trained yet. Call train() first.")
+        
+        # Scale input data
+        X_scaled = self.scaler.transform(X)
+        
+        # Make predictions
+        predictions = self.model.predict(X_scaled)
+        probabilities = self.model.predict_proba(X_scaled)[:, 1]  # Probability of positive class
+        
+        return predictions, probabilities
+    
+    def save(self, model_path=None):
+        """Save the trained model and scaler to disk"""
+        if self.model is None:
+            raise ValueError("Model not trained yet. Cannot save.")
+        
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'svm_flood_model.joblib')
+        
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Save model and scaler together
+        joblib.dump({'model': self.model, 'scaler': self.scaler}, model_path)
+        logger.info(f"Saved SVM model to {model_path}")
+    
+    def load(self, model_path=None):
+        """Load the model and scaler from disk"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'svm_flood_model.joblib')
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Load model and scaler
+        saved_data = joblib.load(model_path)
+        self.model = saved_data['model']
+        self.scaler = saved_data['scaler']
+        logger.info(f"Loaded SVM model from {model_path}")
+
+
+class TimeSeriesForecaster:
+    """Time series forecasting for flood prediction
+    
+    This class implements ARIMA and Exponential Smoothing methods for time-series
+    analysis of flood-related data such as rainfall and water levels.
+    """
+    
+    def __init__(self, method='arima'):
+        """Initialize with specified forecasting method
+        
+        Args:
+            method (str): Either 'arima' or 'exponential_smoothing'
+        """
+        self.method = method
+        self.model = None
+        self.data_frequency = 'D'  # Default to daily data
+        self.last_trained_date = None
+        self.feature_name = None
+    
+    def train(self, time_series_data, feature_name, date_column='date'):
+        """Train the time series model
+        
+        Args:
+            time_series_data (pd.DataFrame): DataFrame with date and feature columns
+            feature_name (str): Name of the feature column to forecast
+            date_column (str): Name of the date column
+        """
+        logger.info(f"Training {self.method} model for {feature_name}")
+        self.feature_name = feature_name
+        
+        # Ensure data is sorted by date
+        df = time_series_data.sort_values(by=date_column).copy()
+        
+        # Convert date to datetime if it's not already
+        if not pd.api.types.is_datetime64_any_dtype(df[date_column]):
+            df[date_column] = pd.to_datetime(df[date_column])
+        
+        # Set date as index
+        df.set_index(date_column, inplace=True)
+        
+        # Determine data frequency
+        if len(df) > 1:
+            # Calculate the most common time delta
+            deltas = df.index.to_series().diff().dropna()
+            if len(deltas) > 0:
+                most_common_delta = deltas.mode()[0]
+                # Convert to frequency string
+                if most_common_delta <= pd.Timedelta(hours=1):
+                    self.data_frequency = 'H'
+                elif most_common_delta <= pd.Timedelta(days=1):
+                    self.data_frequency = 'D'
+                elif most_common_delta <= pd.Timedelta(weeks=1):
+                    self.data_frequency = 'W'
+                else:
+                    self.data_frequency = 'M'
+        
+        # Get the time series data
+        series = df[feature_name]
+        
+        # Train the model based on method
+        if self.method == 'arima':
+            # Simple auto ARIMA - in production would use more sophisticated parameter selection
+            self.model = ARIMA(series, order=(1, 1, 1))
+            self.model = self.model.fit()
+        elif self.method == 'exponential_smoothing':
+            # Exponential smoothing with trend
+            self.model = ExponentialSmoothing(series, trend='add', seasonal=None)
+            self.model = self.model.fit()
+        else:
+            raise ValueError(f"Unknown forecasting method: {self.method}")
+        
+        self.last_trained_date = df.index.max()
+        logger.info(f"Time series model trained on data up to {self.last_trained_date}")
+    
+    def forecast(self, steps=24):
+        """Generate forecast for specified number of steps ahead
+        
+        Args:
+            steps (int): Number of time periods to forecast
+            
+        Returns:
+            pd.Series: Forecasted values with date index
+        """
+        if self.model is None:
+            raise ValueError("Model not trained yet. Call train() first.")
+        
+        if self.method == 'arima':
+            forecast_result = self.model.forecast(steps=steps)
+        elif self.method == 'exponential_smoothing':
+            forecast_result = self.model.forecast(steps=steps)
+        
+        # Generate date index for the forecast
+        if self.data_frequency == 'H':
+            forecast_dates = pd.date_range(start=self.last_trained_date, periods=steps+1, freq='H')[1:]
+        elif self.data_frequency == 'D':
+            forecast_dates = pd.date_range(start=self.last_trained_date, periods=steps+1, freq='D')[1:]
+        elif self.data_frequency == 'W':
+            forecast_dates = pd.date_range(start=self.last_trained_date, periods=steps+1, freq='W')[1:]
+        else:  # Monthly
+            forecast_dates = pd.date_range(start=self.last_trained_date, periods=steps+1, freq='M')[1:]
+        
+        # Return forecast as Series with date index
+        return pd.Series(forecast_result, index=forecast_dates, name=self.feature_name)
+    
+    def save(self, model_path=None):
+        """Save the trained model to disk"""
+        if self.model is None:
+            raise ValueError("Model not trained yet. Cannot save.")
+        
+        if model_path is None:
+            filename = f"{self.method}_{self.feature_name}_model.joblib"
+            model_path = os.path.join(MODEL_DIR, filename)
+        
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Save model parameters
+        model_data = {
+            'model': self.model,
+            'method': self.method,
+            'data_frequency': self.data_frequency,
+            'last_trained_date': self.last_trained_date,
+            'feature_name': self.feature_name
+        }
+        
+        joblib.dump(model_data, model_path)
+        logger.info(f"Saved {self.method} model for {self.feature_name} to {model_path}")
+    
+    def load(self, model_path=None):
+        """Load the model from disk"""
+        if model_path is None and self.feature_name is not None:
+            filename = f"{self.method}_{self.feature_name}_model.joblib"
+            model_path = os.path.join(MODEL_DIR, filename)
+        elif model_path is None:
+            raise ValueError("Either model_path or feature_name must be provided")
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Load model parameters
+        model_data = joblib.load(model_path)
+        self.model = model_data['model']
+        self.method = model_data['method']
+        self.data_frequency = model_data['data_frequency']
+        self.last_trained_date = model_data['last_trained_date']
+        self.feature_name = model_data['feature_name']
+        
+        logger.info(f"Loaded {self.method} model for {self.feature_name} from {model_path}")
+
+
+class SpatialAnalyzer:
+    """Spatial analysis for flood risk using Inverse Distance Weighting and other methods
+    
+    This class implements spatial analysis techniques for flood risk assessment based on
+    location data and environmental factors.
+    """
+    
+    def __init__(self, method='idw'):
+        """Initialize with specified spatial analysis method
+        
+        Args:
+            method (str): 'idw' for Inverse Distance Weighting or 'kriging' for Kriging
+        """
+        self.method = method
+        self.locations = None
+        self.values = None
+        self.trained = False
+    
+    def train(self, locations, values):
+        """Train the spatial model with known data points
+        
+        Args:
+            locations (np.array): Array of (latitude, longitude) coordinates
+            values (np.array): Array of corresponding values at those locations
+        """
+        logger.info(f"Training spatial model using {self.method} with {len(locations)} points")
+        
+        if len(locations) != len(values):
+            raise ValueError("Locations and values must have the same length")
+        
+        self.locations = np.array(locations)
+        self.values = np.array(values)
+        self.trained = True
+        
+        logger.info("Spatial model training complete")
+    
+    def predict(self, query_locations, p=2):
+        """Predict values at query locations using spatial interpolation
+        
+        Args:
+            query_locations (np.array): Array of (latitude, longitude) coordinates to predict
+            p (int): Power parameter for IDW (default: 2)
+            
+        Returns:
+            np.array: Predicted values at query locations
+        """
+        if not self.trained:
+            raise ValueError("Model not trained yet. Call train() first.")
+        
+        query_locations = np.array(query_locations)
+        predictions = np.zeros(len(query_locations))
+        
+        # IDW implementation
+        if self.method == 'idw':
+            for i, query_point in enumerate(query_locations):
+                # Calculate distances from query point to all known points
+                distances = np.sqrt(np.sum((self.locations - query_point)**2, axis=1))
+                
+                # Handle the case where a query point exactly matches a known point
+                if np.any(distances == 0):
+                    exact_match_idx = np.where(distances == 0)[0][0]
+                    predictions[i] = self.values[exact_match_idx]
+                    continue
+                
+                # Calculate weights using inverse distance
+                weights = 1.0 / (distances ** p)
+                weights = weights / np.sum(weights)  # Normalize weights
+                
+                # Calculate weighted average
+                predictions[i] = np.sum(self.values * weights)
+        
+        elif self.method == 'kriging':
+            # Simplified kriging implementation (in a full implementation, you'd use a library like PyKrige)
+            logger.warning("Using simplified kriging implementation")
+            
+            # Simple Kriging implementation (this is a very simplified version)
+            for i, query_point in enumerate(query_locations):
+                # Calculate distances
+                distances = np.sqrt(np.sum((self.locations - query_point)**2, axis=1))
+                
+                # Use exponential variogram model
+                range_param = np.mean(distances) / 3
+                sill = np.var(self.values)
+                nugget = 0.1 * sill
+                
+                # Calculate semi-variance using exponential model
+                semi_variance = nugget + sill * (1 - np.exp(-distances / range_param))
+                
+                # Avoid division by zero
+                semi_variance[semi_variance < 1e-10] = 1e-10
+                
+                # Calculate weights (inverting the semi-variance matrix is complex, simplified here)
+                weights = 1.0 / semi_variance
+                weights = weights / np.sum(weights)  # Normalize
+                
+                # Weighted prediction
+                predictions[i] = np.sum(self.values * weights)
+        
+        else:
+            raise ValueError(f"Unknown spatial analysis method: {self.method}")
+        
+        return predictions
+    
+    def save(self, model_path=None):
+        """Save the trained spatial model to disk"""
+        if not self.trained:
+            raise ValueError("Model not trained yet. Cannot save.")
+        
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, f"spatial_{self.method}_model.joblib")
+        
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Save model data
+        model_data = {
+            'method': self.method,
+            'locations': self.locations,
+            'values': self.values,
+            'trained': self.trained
+        }
+        
+        joblib.dump(model_data, model_path)
+        logger.info(f"Saved spatial model using {self.method} to {model_path}")
+    
+    def load(self, model_path=None):
+        """Load the spatial model from disk"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, f"spatial_{self.method}_model.joblib")
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Load model data
+        model_data = joblib.load(model_path)
+        self.method = model_data['method']
+        self.locations = model_data['locations']
+        self.values = model_data['values']
+        self.trained = model_data['trained']
+        
+        logger.info(f"Loaded spatial model using {self.method} from {model_path}")
+
+
+class LSTMFloodPredictor:
+    """Long Short-Term Memory Neural Network for flood prediction
+    
+    This model uses LSTM layers to capture temporal patterns in flood-related data.
+    It requires TensorFlow to be installed.
+    """
+    
+    def __init__(self):
+        if not TENSORFLOW_AVAILABLE:
+            raise ImportError("TensorFlow is required for LSTMFloodPredictor")
+        
+        from tensorflow.keras.models import Sequential, load_model
+        from tensorflow.keras.layers import Dense, LSTM, Dropout
+        
+        self.model = None
+        self.scaler = StandardScaler()
+        self.sequence_length = None
+        self.features = None
+        self.trained = False
+    
+    def _create_sequences(self, df, target_col, sequence_length):
+        """Create sequences for LSTM input
+        
+        Args:
+            df (pd.DataFrame): DataFrame with features and target
+            target_col (str): Name of target column
+            sequence_length (int): Number of time steps to use
+            
+        Returns:
+            tuple: (X, y) where X is sequence data and y is targets
+        """
+        X, y = [], []
+        data = df.values
+        
+        for i in range(len(data) - sequence_length):
+            X.append(data[i:(i + sequence_length), :-1])  # All columns except target
+            y.append(data[i + sequence_length - 1, -1])   # Target column
+        
+        return np.array(X), np.array(y)
+    
+    def train(self, data, target_col, sequence_length=10, epochs=50, batch_size=32):
+        """Train the LSTM model
+        
+        Args:
+            data (pd.DataFrame): DataFrame with features and target column
+            target_col (str): Name of target column
+            sequence_length (int): Number of time steps to use as input
+            epochs (int): Number of training epochs
+            batch_size (int): Batch size for training
+        """
+        if not TENSORFLOW_AVAILABLE:
+            raise ImportError("TensorFlow is required for LSTMFloodPredictor")
+        
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.layers import Dense, LSTM, Dropout
+        from tensorflow.keras.callbacks import EarlyStopping
+        
+        logger.info(f"Training LSTM model with sequence length {sequence_length}")
+        
+        # Save for prediction
+        self.sequence_length = sequence_length
+        self.features = [col for col in data.columns if col != target_col]
+        
+        # Move target column to end if it's not already there
+        if data.columns[-1] != target_col:
+            cols = [col for col in data.columns if col != target_col] + [target_col]
+            data = data[cols]
+        
+        # Scale the data
+        data_values = data.values
+        self.scaler.fit(data_values)
+        scaled_data = self.scaler.transform(data_values)
+        
+        # Create DataFrame with scaled values
+        scaled_df = pd.DataFrame(scaled_data, columns=data.columns)
+        
+        # Create sequences
+        X, y = self._create_sequences(scaled_df, target_col, sequence_length)
+        
+        # Reshape for LSTM [samples, time steps, features]
+        n_features = X.shape[2]
+        
+        # Split into train/test
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        # Build LSTM model
+        self.model = Sequential()
+        self.model.add(LSTM(50, activation='relu', return_sequences=True, 
+                           input_shape=(sequence_length, n_features)))
+        self.model.add(Dropout(0.2))
+        self.model.add(LSTM(50, activation='relu'))
+        self.model.add(Dropout(0.2))
+        self.model.add(Dense(1, activation='sigmoid'))
+        
+        # Compile
+        self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        
+        # Early stopping
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+        
+        # Fit the model
+        self.model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size,
+                      validation_data=(X_test, y_test), callbacks=[early_stopping], verbose=1)
+        
+        # Evaluate
+        loss, accuracy = self.model.evaluate(X_test, y_test)
+        logger.info(f"LSTM Test accuracy: {accuracy:.4f}")
+        
+        self.trained = True
+    
+    def predict(self, X):
+        """Predict flood probability using the trained LSTM model
+        
+        Args:
+            X (pd.DataFrame or np.array): Input features
+            
+        Returns:
+            tuple: (predictions, probabilities)
+        """
+        if not self.trained or self.model is None:
+            raise ValueError("Model not trained yet. Call train() first.")
+        
+        # If DataFrame, extract values and ensure features match
+        if isinstance(X, pd.DataFrame):
+            # Check features
+            missing_features = set(self.features) - set(X.columns)
+            if missing_features:
+                raise ValueError(f"Missing features in input data: {missing_features}")
+            
+            # Extract values for required features
+            X = X[self.features].values
+        
+        # Scale the data
+        X_scaled = self.scaler.transform(X)
+        
+        # Create sequences (assumes X is already in time order)
+        sequences = []
+        for i in range(len(X_scaled) - self.sequence_length + 1):
+            sequences.append(X_scaled[i:i+self.sequence_length])
+        
+        if not sequences:  # Not enough data for a sequence
+            raise ValueError(f"Need at least {self.sequence_length} samples for prediction")
+        
+        # Convert to numpy array
+        X_seq = np.array(sequences)
+        
+        # Predict
+        probabilities = self.model.predict(X_seq)
+        predictions = (probabilities > 0.5).astype(int)
+        
+        return predictions.flatten(), probabilities.flatten()
+    
+    def save(self, model_path=None):
+        """Save the trained LSTM model to disk"""
+        if not self.trained or self.model is None:
+            raise ValueError("Model not trained yet. Cannot save.")
+        
+        if model_path is None:
+            model_dir = os.path.join(MODEL_DIR, 'lstm_model')
+            os.makedirs(model_dir, exist_ok=True)
+            model_path = os.path.join(model_dir, 'lstm_model.h5')
+            metadata_path = os.path.join(model_dir, 'lstm_metadata.joblib')
+        else:
+            model_dir = os.path.dirname(model_path)
+            os.makedirs(model_dir, exist_ok=True)
+            metadata_path = os.path.join(model_dir, 'lstm_metadata.joblib')
+        
+        # Save Keras model
+        self.model.save(model_path)
+        
+        # Save metadata
+        metadata = {
+            'sequence_length': self.sequence_length,
+            'features': self.features,
+            'scaler': self.scaler
+        }
+        joblib.dump(metadata, metadata_path)
+        
+        logger.info(f"Saved LSTM model to {model_path} and metadata to {metadata_path}")
+    
+    def load(self, model_path=None):
+        """Load the LSTM model from disk"""
+        if not TENSORFLOW_AVAILABLE:
+            raise ImportError("TensorFlow is required for LSTMFloodPredictor")
+        
+        from tensorflow.keras.models import load_model
+        
+        if model_path is None:
+            model_dir = os.path.join(MODEL_DIR, 'lstm_model')
+            model_path = os.path.join(model_dir, 'lstm_model.h5')
+            metadata_path = os.path.join(model_dir, 'lstm_metadata.joblib')
+        else:
+            model_dir = os.path.dirname(model_path)
+            metadata_path = os.path.join(model_dir, 'lstm_metadata.joblib')
+        
+        if not os.path.exists(model_path) or not os.path.exists(metadata_path):
+            raise FileNotFoundError(f"Model files not found: {model_path} or {metadata_path}")
+        
+        # Load Keras model
+        self.model = load_model(model_path)
+        
+        # Load metadata
+        metadata = joblib.load(metadata_path)
+        self.sequence_length = metadata['sequence_length']
+        self.features = metadata['features']
+        self.scaler = metadata['scaler']
+        self.trained = True
+        
+        logger.info(f"Loaded LSTM model from {model_path} and metadata from {metadata_path}")
+
+
+class MultiCriteriaDecisionAnalyzer:
+    """Multi-criteria decision analysis for flood risk assessment
+    
+    This class implements Multi-Criteria Decision Analysis (MCDA) methods for
+    combining multiple risk factors with different weights to produce a comprehensive
+    flood risk assessment.
+    """
+    
+    def __init__(self):
+        # Default criteria and weights
+        self.criteria = {
+            'rainfall_intensity': 0.25,
+            'water_level': 0.25,
+            'soil_saturation': 0.15,
+            'elevation': 0.15,
+            'historical_floods': 0.10,
+            'proximity_to_water': 0.10
+        }
+        
+        # Thresholds for risk levels
+        self.thresholds = {
+            'high_risk': 0.7,
+            'medium_risk': 0.4,
+            'low_risk': 0.2
+        }
+    
+    def set_criteria(self, criteria_weights):
+        """Set custom criteria and weights
+        
+        Args:
+            criteria_weights (dict): Dictionary of criteria names and weights
+        """
+        # Validate weights sum to 1
+        total_weight = sum(criteria_weights.values())
+        if abs(total_weight - 1.0) > 0.001:  # Allow small floating point error
+            logger.warning(f"Criteria weights sum to {total_weight}, not 1.0. Normalizing.")
+            # Normalize weights
+            for key in criteria_weights:
+                criteria_weights[key] /= total_weight
+        
+        self.criteria = criteria_weights
+        logger.info(f"Set custom criteria weights: {self.criteria}")
+    
+    def set_thresholds(self, thresholds):
+        """Set custom thresholds for risk levels
+        
+        Args:
+            thresholds (dict): Dictionary with keys 'high_risk', 'medium_risk', 'low_risk'
+        """
+        # Validate thresholds are in descending order
+        if not (thresholds['high_risk'] > thresholds['medium_risk'] > thresholds['low_risk']):
+            raise ValueError("Thresholds must be in descending order: high_risk > medium_risk > low_risk")
+        
+        self.thresholds = thresholds
+        logger.info(f"Set custom risk thresholds: {self.thresholds}")
+    
+    def normalize_factor(self, value, min_val, max_val, invert=False):
+        """Normalize a factor to 0-1 scale
+        
+        Args:
+            value (float): The value to normalize
+            min_val (float): Minimum possible value
+            max_val (float): Maximum possible value
+            invert (bool): If True, invert the scale (1 = low risk, 0 = high risk)
+            
+        Returns:
+            float: Normalized value (0-1)
+        """
+        if max_val == min_val:
+            normalized = 0.5  # Default if range is zero
+        else:
+            normalized = (value - min_val) / (max_val - min_val)
+        
+        # Clamp to 0-1 range
+        normalized = max(0, min(1, normalized))
+        
+        # Invert if needed (e.g., for elevation where higher is better)
+        if invert:
+            normalized = 1 - normalized
+        
+        return normalized
+    
+    def analyze(self, factors):
+        """Perform multi-criteria analysis to assess flood risk
+        
+        Args:
+            factors (dict): Dictionary of factor values keyed by criterion name
+            
+        Returns:
+            dict: Risk assessment results including score and risk level
+        """
+        # Validate that all required criteria are present
+        missing_criteria = set(self.criteria.keys()) - set(factors.keys())
+        if missing_criteria:
+            raise ValueError(f"Missing required criteria: {missing_criteria}")
+        
+        # Factor ranges for normalization (these would ideally be determined from historical data)
+        factor_ranges = {
+            'rainfall_intensity': {'min': 0, 'max': 100, 'invert': False},  # mm
+            'water_level': {'min': 0, 'max': 5, 'invert': False},  # meters
+            'soil_saturation': {'min': 0, 'max': 100, 'invert': False},  # percent
+            'elevation': {'min': 0, 'max': 200, 'invert': True},  # meters
+            'historical_floods': {'min': 0, 'max': 10, 'invert': False},  # count
+            'proximity_to_water': {'min': 0, 'max': 1000, 'invert': True}  # meters
+        }
+        
+        # Normalize factors
+        normalized_factors = {}
+        for criterion, value in factors.items():
+            if criterion in factor_ranges:
+                range_info = factor_ranges[criterion]
+                normalized_factors[criterion] = self.normalize_factor(
+                    value, range_info['min'], range_info['max'], range_info['invert']
+                )
+            else:
+                # For criteria not in predefined ranges, assume 0-1 already normalized
+                normalized_factors[criterion] = value
+        
+        # Calculate weighted score
+        weighted_score = 0
+        for criterion, weight in self.criteria.items():
+            if criterion in normalized_factors:
+                weighted_score += normalized_factors[criterion] * weight
+        
+        # Determine risk level
+        if weighted_score >= self.thresholds['high_risk']:
+            risk_level = 'high'
+            numeric_risk = 3
+        elif weighted_score >= self.thresholds['medium_risk']:
+            risk_level = 'medium'
+            numeric_risk = 2
+        elif weighted_score >= self.thresholds['low_risk']:
+            risk_level = 'low'
+            numeric_risk = 1
+        else:
+            risk_level = 'minimal'
+            numeric_risk = 0
+        
+        return {
+            'score': weighted_score,
+            'risk_level': risk_level,
+            'numeric_risk': numeric_risk,
+            'normalized_factors': normalized_factors,
+            'thresholds': self.thresholds
+        }
+    
+    def save(self, model_path=None):
+        """Save the MCDA model configuration"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'mcda_model.joblib')
+        
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Save configuration
+        config = {
+            'criteria': self.criteria,
+            'thresholds': self.thresholds
+        }
+        
+        joblib.dump(config, model_path)
+        logger.info(f"Saved MCDA model configuration to {model_path}")
+    
+    def load(self, model_path=None):
+        """Load MCDA model configuration"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'mcda_model.joblib')
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Load configuration
+        config = joblib.load(model_path)
+        self.criteria = config['criteria']
+        self.thresholds = config['thresholds']
+        
+        logger.info(f"Loaded MCDA model configuration from {model_path}")
+
+
+class DynamicTimeWarpingAnalyzer:
+    """Dynamic Time Warping for comparing flood event patterns
+    
+    This class uses Dynamic Time Warping (DTW) to compare current environmental
+    patterns with historical flood events to identify similar situations.
+    """
+    
+    def __init__(self):
+        self.historical_patterns = []  # List of (pattern, metadata) tuples
+    
+    def add_pattern(self, time_series, metadata=None):
+        """Add a historical pattern for comparison
+        
+        Args:
+            time_series (array-like): Time series data representing a pattern
+            metadata (dict): Associated metadata (e.g., 'resulted_in_flood', 'severity')
+        """
+        self.historical_patterns.append((np.array(time_series), metadata or {}))
+    
+    def dtw_distance(self, s1, s2, window=None):
+        """Compute Dynamic Time Warping distance between two sequences
+        
+        Args:
+            s1, s2 (array-like): Sequences to compare
+            window (int): Sakoe-Chiba band width (None for no constraint)
+            
+        Returns:
+            float: DTW distance
+        """
+        # Convert to numpy arrays
+        s1 = np.array(s1)
+        s2 = np.array(s2)
+        
+        # Get sequence lengths
+        n, m = len(s1), len(s2)
+        
+        # If window is not set, use the larger sequence length
+        if window is None:
+            window = max(n, m)
+        
+        # Initialize cost matrix
+        dtw_matrix = np.full((n+1, m+1), np.inf)
+        dtw_matrix[0, 0] = 0
+        
+        # Fill the cost matrix
+        for i in range(1, n+1):
+            for j in range(max(1, i-window), min(m+1, i+window+1)):
+                cost = (s1[i-1] - s2[j-1])**2
+                dtw_matrix[i, j] = cost + min(
+                    dtw_matrix[i-1, j],      # Insertion
+                    dtw_matrix[i, j-1],      # Deletion
+                    dtw_matrix[i-1, j-1]     # Match
+                )
+        
+        return np.sqrt(dtw_matrix[n, m])
+    
+    def find_similar_patterns(self, current_pattern, top_k=3):
+        """Find historical patterns most similar to current pattern
+        
+        Args:
+            current_pattern (array-like): Current time series data
+            top_k (int): Number of most similar patterns to return
+            
+        Returns:
+            list: List of (distance, pattern, metadata) tuples sorted by similarity
+        """
+        if not self.historical_patterns:
+            return []
+        
+        # Convert to numpy array if not already
+        current_pattern = np.array(current_pattern)
+        
+        # Calculate distance to each historical pattern
+        results = []
+        for i, (pattern, metadata) in enumerate(self.historical_patterns):
+            try:
+                # Z-normalize patterns for better comparison
+                pattern_norm = (pattern - np.mean(pattern)) / (np.std(pattern) + 1e-8)
+                current_norm = (current_pattern - np.mean(current_pattern)) / (np.std(current_pattern) + 1e-8)
+                
+                distance = self.dtw_distance(current_norm, pattern_norm)
+                results.append((distance, pattern, metadata))
+            except Exception as e:
+                logger.warning(f"Error computing DTW for pattern {i}: {str(e)}")
+        
+        # Sort by distance (smaller = more similar)
+        results.sort(key=lambda x: x[0])
+        
+        # Return top k results
+        return results[:top_k]
+    
+    def save(self, model_path=None):
+        """Save the DTW analyzer with historical patterns"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'dtw_analyzer.joblib')
+        
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Save historical patterns
+        joblib.dump(self.historical_patterns, model_path)
+        logger.info(f"Saved DTW analyzer with {len(self.historical_patterns)} patterns to {model_path}")
+    
+    def load(self, model_path=None):
+        """Load DTW analyzer with historical patterns"""
+        if model_path is None:
+            model_path = os.path.join(MODEL_DIR, 'dtw_analyzer.joblib')
+        
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        # Load historical patterns
+        self.historical_patterns = joblib.load(model_path)
+        logger.info(f"Loaded DTW analyzer with {len(self.historical_patterns)} patterns from {model_path}")
         logger.info("\nGradient Boosting model evaluation:")
         logger.info(classification_report(y_test, y_pred))
         

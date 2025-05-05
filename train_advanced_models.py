@@ -141,6 +141,40 @@ def train_and_evaluate_classification_models(data):
         # For LSTM, we need to prepare sequential data
         # Here we'll use a simple approach of recent historical data
         lstm = LSTMFloodPredictor()
+        
+        # We need to create a DataFrame with all data
+        all_data = pd.DataFrame(
+            np.vstack([X_train, X_test]), 
+            columns=[f'feature_{i}' for i in range(X_train.shape[1])]
+        )
+        all_data['target'] = np.hstack([y_train, y_test])
+        
+        # Train the LSTM model
+        lstm.train(all_data, 'target', sequence_length=10, epochs=20, batch_size=32)
+        
+        # Since LSTM uses sequential data, evaluation is a bit different
+        # We'll use a simplified approach here
+        try:
+            # Create test sequences
+            test_data = pd.DataFrame(X_test, columns=[f'feature_{i}' for i in range(X_test.shape[1])])
+            test_data['target'] = y_test
+            
+            # Predict
+            lstm_pred, lstm_prob = lstm.predict(test_data)
+            
+            # Calculate metrics
+            lstm_accuracy = accuracy_score(y_test[-len(lstm_pred):], lstm_pred)
+            lstm_f1 = f1_score(y_test[-len(lstm_pred):], lstm_pred)
+            
+            logger.info(f"LSTM Accuracy: {lstm_accuracy:.4f}, F1 Score: {lstm_f1:.4f}")
+            lstm.save()
+            results['LSTM'] = {'accuracy': lstm_accuracy, 'f1': lstm_f1}
+        except Exception as e:
+            logger.error(f"Error evaluating LSTM model: {str(e)}")
+            results['LSTM'] = {'accuracy': 0, 'f1': 0, 'error': str(e)}
+    except Exception as e:
+        logger.error(f"Error training LSTM model: {str(e)}")
+        results['LSTM'] = {'accuracy': 0, 'f1': 0, 'error': str(e)}
         # Get the first 80% of data for training in time order
         all_data = pd.concat([X_train, y_train], axis=1)
         all_data = all_data.sample(frac=1, random_state=42).reset_index(drop=True)  # Shuffle
