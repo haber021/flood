@@ -5,6 +5,12 @@ import dj_database_url
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Check if running on localhost
+is_localhost = os.environ.get('SERVER_SOFTWARE', '').startswith('Development') or \
+              os.environ.get('SERVER_NAME', '') in ['localhost', '127.0.0.1'] or \
+              'localhost' in os.environ.get('HTTP_HOST', '') or \
+              '127.0.0.1' in os.environ.get('HTTP_HOST', '')
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -143,3 +149,12 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10
 }
+
+# Load local settings if running locally or on development server
+try:
+    if is_localhost or DEBUG:
+        from .local_settings import *
+        print("Loaded local development settings")
+except ImportError:
+    print("No local_settings.py found, using production settings")
+
