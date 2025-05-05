@@ -1102,56 +1102,145 @@ def get_map_data(request):
 def get_all_barangays(request):
     """API endpoint for retrieving all barangays within a municipality without pagination
     
-    This endpoint returns a comprehensive list of all barangays in a specific municipality
-    with population data, with no pagination limits, making it ideal for map displays and dropdowns.
+    This endpoint returns a comprehensive list of all barangays with population data, with no pagination limits, 
+    making it ideal for map displays and dropdowns.
+    
+    If municipality_id is provided, it returns barangays for that specific municipality.
+    If province is provided without municipality_id, it returns all barangays for that province.
+    If neither is provided, it returns all barangays in the system.
     
     Query Parameters:
         municipality_id: Filter barangays to a specific municipality
+        province: Filter barangays to a specific province
     """
     municipality_id = request.GET.get('municipality_id', None)
-    
-    if not municipality_id:
-        return Response(
-            {'error': 'municipality_id parameter is required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    province = request.GET.get('province', None)
     
     try:
-        # Validate the municipality exists
-        municipality = Municipality.objects.get(id=municipality_id)
-        
-        # Get all barangays for this municipality
-        barangays = Barangay.objects.filter(municipality_id=municipality_id)
-        
-        # Prepare the response with all barangay details
-        barangay_data = []
-        for barangay in barangays:
-            barangay_info = {
-                'id': barangay.id,
-                'name': barangay.name,
-                'municipality_id': barangay.municipality_id,
-                'municipality_name': municipality.name,
-                'population': barangay.population,
-                'contact_person': barangay.contact_person,
-                'contact_number': barangay.contact_number,
-                'latitude': barangay.latitude,
-                'longitude': barangay.longitude,
-            }
-            barangay_data.append(barangay_info)
-        
-        # Sort alphabetically by name for consistent display
-        barangay_data.sort(key=lambda x: x['name'])
-        
-        # Return the comprehensive data
-        return Response({
-            'municipality': {
-                'id': municipality.id,
-                'name': municipality.name,
-                'province': municipality.province
-            },
+        # Case 1: Specific municipality requested
+        if municipality_id:
+            # Validate the municipality exists
+            municipality = Municipality.objects.get(id=municipality_id)
+            
+            # Get all barangays for this municipality
+            barangays = Barangay.objects.filter(municipality_id=municipality_id)
+            
+            # Prepare the response with all barangay details
+            barangay_data = []
+            for barangay in barangays:
+                barangay_info = {
+                    'id': barangay.id,
+                    'name': barangay.name,
+                    'municipality_id': barangay.municipality_id,
+                    'municipality_name': municipality.name,
+                    'population': barangay.population,
+                    'contact_person': barangay.contact_person,
+                    'contact_number': barangay.contact_number,
+                    'latitude': barangay.latitude,
+                    'longitude': barangay.longitude,
+                }
+                barangay_data.append(barangay_info)
+            
+            # Sort alphabetically by name for consistent display
+            barangay_data.sort(key=lambda x: x['name'])
+            
+            # Return the comprehensive data
+            return Response({
+                'municipality': {
+                    'id': municipality.id,
+                    'name': municipality.name,
+                    'province': municipality.province
+                },
             'barangays': barangay_data,
             'count': len(barangay_data)
         })
+        
+        # Case 2: Province filter without specific municipality
+        elif province:
+            # Get all municipalities in this province
+            municipalities = Municipality.objects.filter(province__iexact=province)
+            
+            if not municipalities.exists():
+                return Response(
+                    {'error': f'No municipalities found for province: {province}'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Get all barangays for these municipalities
+            municipality_ids = [m.id for m in municipalities]
+            barangays = Barangay.objects.filter(municipality_id__in=municipality_ids)
+            
+            # Prepare the barangay data
+            barangay_data = []
+            for barangay in barangays:
+                municipality = next((m for m in municipalities if m.id == barangay.municipality_id), None)
+                if municipality:
+                    barangay_info = {
+                        'id': barangay.id,
+                        'name': barangay.name,
+                        'municipality_id': barangay.municipality_id,
+                        'municipality_name': municipality.name,
+                        'population': barangay.population,
+                        'contact_person': barangay.contact_person,
+                        'contact_number': barangay.contact_number,
+                        'latitude': barangay.latitude,
+                        'longitude': barangay.longitude,
+                    }
+                    barangay_data.append(barangay_info)
+            
+            # Sort alphabetically by name for consistent display
+            barangay_data.sort(key=lambda x: x['name'])
+            
+            # Return data with province context
+            return Response({
+                'province': province,
+                'municipalities': [{
+                    'id': m.id, 
+                    'name': m.name,
+                    'province': m.province
+                } for m in municipalities],
+                'barangays': barangay_data,
+                'count': len(barangay_data)
+            })
+        
+        # Case 3: All barangays (no specific municipality or province)
+        else:
+            # Get all barangays
+            barangays = Barangay.objects.all().select_related('municipality')
+            
+            # Prepare the barangay data
+            barangay_data = []
+            for barangay in barangays:
+                if barangay.municipality:
+                    barangay_info = {
+                        'id': barangay.id,
+                        'name': barangay.name,
+                        'municipality_id': barangay.municipality_id,
+                        'municipality_name': barangay.municipality.name,
+                        'population': barangay.population,
+                        'contact_person': barangay.contact_person,
+                        'contact_number': barangay.contact_number,
+                        'latitude': barangay.latitude,
+                        'longitude': barangay.longitude,
+                    }
+                    barangay_data.append(barangay_info)
+            
+            # Sort alphabetically by name for consistent display
+            barangay_data.sort(key=lambda x: x['name'])
+            
+            # Get all municipalities for context
+            municipalities = Municipality.objects.all()
+            
+            # Return comprehensive data
+            return Response({
+                'municipalities': [{
+                    'id': m.id, 
+                    'name': m.name,
+                    'province': m.province
+                } for m in municipalities],
+                'barangays': barangay_data,
+                'count': len(barangay_data)
+            })
     
     except Municipality.DoesNotExist:
         return Response(

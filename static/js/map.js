@@ -1256,7 +1256,7 @@ function darkenColor(hex, percent) {
  */
 function loadMunicipalityData() {
     return new Promise((resolve, reject) => {
-        fetch('/api/municipalities/')
+        fetch('/api/municipalities/?province=Ilocos%20Sur')
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
@@ -1264,7 +1264,7 @@ function loadMunicipalityData() {
                 return response.json();
             })
             .then(data => {
-                console.log('Municipality data received:', data);
+                console.log('[Map] Municipality data received:', data);
                 
                 // Store all municipalities for the selector
                 allMunicipalities = data.results || [];
@@ -1272,8 +1272,8 @@ function loadMunicipalityData() {
                 // Update the municipality selector
                 setupMunicipalitySelector();
                 
-                // Preload barangays for all municipalities
-                preloadAllBarangays();
+                // Preload barangays using the all-barangays endpoint instead
+                preloadAllIlocosSurBarangays();
                 
                 // Resolve the promise to indicate municipalities are loaded
                 resolve(allMunicipalities);
@@ -1312,6 +1312,63 @@ function preloadAllBarangays() {
     
     // Start loading from the first municipality
     loadMunicipalityBarangays(0);
+}
+
+/**
+ * Preload all barangays for Ilocos Sur in a single request
+ */
+function preloadAllIlocosSurBarangays() {
+    console.log(`[Barangays] Loading all barangays for Ilocos Sur province...`);
+    
+    // Use the province parameter to get all barangays at once
+    fetch('/api/all-barangays/?province=Ilocos%20Sur')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`[Barangays] Received ${data.count} barangays for Ilocos Sur`);
+            
+            // Store the barangays in our global array
+            if (data.barangays && data.barangays.length > 0) {
+                // Replace existing barangays with the new comprehensive list
+                allBarangays = data.barangays;
+                
+                // Mark all municipalities as loaded
+                data.municipalities.forEach(municipality => {
+                    if (!loadedMunicipalityBarangays.includes(municipality.id)) {
+                        loadedMunicipalityBarangays.push(municipality.id);
+                    }
+                });
+                
+                // Update the barangay selector with the new data
+                setupBarangaySelector();
+                
+                // If we had a saved barangay selection, restore it
+                const savedBarangayId = sessionStorage.getItem('selectedBarangayId');
+                if (savedBarangayId) {
+                    // Find the barangay in the loaded data
+                    const barangay = allBarangays.find(b => b.id.toString() === savedBarangayId);
+                    if (barangay) {
+                        window.selectedBarangay = barangay;
+                        
+                        // Update the selector UI if it exists
+                        const barangaySelector = document.getElementById('barangay-selector');
+                        if (barangaySelector) {
+                            barangaySelector.value = savedBarangayId;
+                        }
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading Ilocos Sur barangays:', error);
+            
+            // Fallback to loading municipality by municipality
+            preloadAllBarangays();
+        });
 }
 
 /**
