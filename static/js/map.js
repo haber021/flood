@@ -15,6 +15,10 @@ let heatmapLayer;
 // Active view mode
 let activeMapMode = 'risk-zones';
 
+// Track flood-affected barangays
+let floodAffectedBarangays = new Set();
+let barangayAlertDetails = {}; // Store alert details for affected barangays
+
 // Selected municipality and barangay - global variables to be used in all modules
 window.selectedMunicipality = null;
 window.selectedBarangay = null;
@@ -863,6 +867,9 @@ function refreshAllDataForNewLocation() {
     if (window.selectedMunicipality && !loadedMunicipalityBarangays.includes(parseInt(window.selectedMunicipality.id))) {
         loadBarangaysForMunicipality(window.selectedMunicipality.id);
     }
+    
+    // Check for flood alerts affecting the current location
+    fetchFloodAlertsForCurrentLocation();
     
     // Display barangays for the selected municipality
     displayMunicipalityBarangays();
