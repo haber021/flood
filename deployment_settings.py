@@ -2,16 +2,26 @@
 # Copy these settings to your settings.py file when deploying to production
 
 # Database configuration for MySQL
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'barangay',  # Database name
-        'USER': 'root',      # Database user
-        'PASSWORD': 'root',  # Database password
-        'HOST': '127.0.0.1', # Database host
-        'PORT': '3305',      # Database port
+# Replace the existing PostgreSQL configuration with this MySQL configuration
+
+# Use DATABASE_URL environment variable if available
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config()
     }
-}
+else:
+    # MySQL database configuration
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'barangay',      # Database name
+            'USER': 'root',          # Database user
+            'PASSWORD': 'root',      # Database password
+            'HOST': '127.0.0.1',     # Database host
+            'PORT': '3305',          # Database port
+        }
+    }
 
 # Production settings
 DEBUG = False
