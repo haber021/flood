@@ -25,7 +25,14 @@ CORS_ALLOW_ALL_ORIGINS = True  # Allow all cross-origin requests
 CORS_ALLOW_CREDENTIALS = True   # Allow cookies in cross-origin requests
 
 # Trust all CSRF origins for local development
-CSRF_TRUSTED_ORIGINS = ['http://localhost:*', 'http://127.0.0.1:*']
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:*', 
+    'http://127.0.0.1:*',
+    'https://*.replit.dev',
+    'https://*.replit.app',
+    'https://*.repl.co',
+    'https://*.janeway.replit.dev'
+]
 
 # Static and media URLs
 STATIC_URL = '/static/'
