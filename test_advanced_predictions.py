@@ -40,18 +40,13 @@ try:
         predict_with_time_series
     )
     
-    # Optional import for advanced algorithms
+    # Check if advanced algorithms are available
     try:
-        from flood_monitoring.ml.advanced_algorithms import (
-            GradientBoostingFloodPredictor,
-            SVMFloodPredictor,
-            MultiCriteriaDecisionAnalyzer,
-            TimeSeriesForecaster,
-            DynamicTimeWarpingAnalyzer
-        )
-        ADVANCED_ALGORITHMS_AVAILABLE = True
+        # Check if the variables are already set in the flood_prediction_model module
+        from flood_monitoring.ml.flood_prediction_model import ADVANCED_ALGORITHMS_AVAILABLE
+        logger.info(f"Advanced algorithms available: {ADVANCED_ALGORITHMS_AVAILABLE}")
     except ImportError:
-        logger.warning("Advanced algorithms not available. Some tests will be skipped.")
+        logger.warning("Cannot determine if advanced algorithms are available. Will use basic prediction.")
         ADVANCED_ALGORITHMS_AVAILABLE = False
     
     # Flag to indicate successful imports

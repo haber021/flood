@@ -38,15 +38,25 @@ SCALER_PATH = os.path.join(MODEL_DIR, 'feature_scaler.joblib')
 class DummyPredictor:
     """Placeholder class when advanced algorithms are not available"""
     def __init__(self, *args, **kwargs):
-        pass
+        self.name = "Dummy Predictor"
         
     def train(self, *args, **kwargs):
         logger.warning("Advanced algorithms not available. Using standard models instead.")
-        return None
+        return self
         
     def predict(self, *args, **kwargs):
         logger.warning("Advanced algorithms not available. Using standard models instead.")
-        return None, None
+        return 0, 0.15  # Default: No flood, 15% probability
+    
+    def save(self, filename=None):
+        """Dummy save method"""
+        logger.warning("Cannot save model: advanced algorithms not available")
+        return
+        
+    def load(self, filename=None):
+        """Dummy load method"""
+        logger.warning("Cannot load model: advanced algorithms not available")
+        return self
 
 # Set defaults assuming libraries aren't available
 GradientBoostingFloodPredictor = DummyPredictor

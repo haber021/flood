@@ -59,6 +59,16 @@ class GradientBoostingFloodPredictor:
             # Basic processing for dataframe or numpy array
             # Simple implementation that returns medium probability
             return 0, 0.4  # Default: Not flood, 40% probability
+    
+    def save(self, filename=None):
+        """Save the model (simulation)"""
+        logger.info(f"Simulating save for {self.name}")
+        return
+    
+    def load(self, filename=None):
+        """Load the model (simulation)"""
+        logger.info(f"Simulating load for {self.name}")
+        return self
 
 
 class SVMFloodPredictor:
@@ -101,6 +111,16 @@ class SVMFloodPredictor:
             # Basic processing for dataframe or numpy array
             # Simple implementation that returns medium probability
             return 0, 0.35  # Default: Not flood, 35% probability
+    
+    def save(self, filename=None):
+        """Save the model (simulation)"""
+        logger.info(f"Simulating save for {self.name}")
+        return
+    
+    def load(self, filename=None):
+        """Load the model (simulation)"""
+        logger.info(f"Simulating load for {self.name}")
+        return self
 
 
 class MultiCriteriaDecisionAnalyzer:
@@ -172,6 +192,16 @@ class MultiCriteriaDecisionAnalyzer:
             'risk_level': risk_level,
             'normalized_factors': normalized_factors
         }
+    
+    def save(self, filename=None):
+        """Save the model (simulation)"""
+        logger.info(f"Simulating save for {self.name}")
+        return
+    
+    def load(self, filename=None):
+        """Load the model (simulation)"""
+        logger.info(f"Simulating load for {self.name}")
+        return self
 
 
 class DynamicTimeWarpingAnalyzer:

@@ -1,10 +1,52 @@
 {
   "high_risk": {
     "random_forest": {
-      "probability": 94,
+      "probability": 93,
       "severity_level": 4,
       "severity_text": "Emergency",
-      "hours_to_flood": 12.068870136705634,
+      "hours_to_flood": 12.188323697872372,
+      "contributing_factors_count": 4
+    },
+    "gradient_boosting": {
+      "probability": 15,
+      "severity_level": 0,
+      "severity_text": "Normal",
+      "hours_to_flood": null,
+      "contributing_factors_count": 4
+    },
+    "svm": {
+      "probability": 15,
+      "severity_level": 0,
+      "severity_text": "Normal",
+      "hours_to_flood": null,
+      "contributing_factors_count": 4
+    },
+    "ensemble": {
+      "probability": 46,
+      "severity_level": 2,
+      "severity_text": "Watch",
+      "hours_to_flood": 12.2,
+      "contributing_factors_count": 5
+    },
+    "mcda": {
+      "probability": 59,
+      "severity_level": 3,
+      "severity_text": "Warning",
+      "hours_to_flood": 1.7,
+      "contributing_factors_count": 5
+    },
+    "dtw": {
+      "probability": 93,
+      "severity_level": 4,
+      "severity_text": "Emergency",
+      "hours_to_flood": 12.188323697872372,
+      "contributing_factors_count": 4
+    },
+    "time_series": {
+      "probability": 93,
+      "severity_level": 4,
+      "severity_text": "Emergency",
+      "hours_to_flood": 12.188323697872372,
       "contributing_factors_count": 4
     }
   },
@@ -13,13 +55,97 @@
       "probability": 84,
       "severity_level": 3,
       "severity_text": "Warning",
-      "hours_to_flood": 22.42515752721556,
+      "hours_to_flood": 22.39154591421615,
+      "contributing_factors_count": 1
+    },
+    "gradient_boosting": {
+      "probability": 15,
+      "severity_level": 0,
+      "severity_text": "Normal",
+      "hours_to_flood": null,
+      "contributing_factors_count": 1
+    },
+    "svm": {
+      "probability": 15,
+      "severity_level": 0,
+      "severity_text": "Normal",
+      "hours_to_flood": null,
+      "contributing_factors_count": 1
+    },
+    "ensemble": {
+      "probability": 43,
+      "severity_level": 2,
+      "severity_text": "Watch",
+      "hours_to_flood": 22.4,
+      "contributing_factors_count": 3
+    },
+    "mcda": {
+      "probability": 44,
+      "severity_level": 2,
+      "severity_text": "Watch",
+      "hours_to_flood": null,
+      "contributing_factors_count": 3
+    },
+    "dtw": {
+      "probability": 84,
+      "severity_level": 3,
+      "severity_text": "Warning",
+      "hours_to_flood": 22.39154591421615,
+      "contributing_factors_count": 1
+    },
+    "time_series": {
+      "probability": 84,
+      "severity_level": 3,
+      "severity_text": "Warning",
+      "hours_to_flood": 22.39154591421615,
       "contributing_factors_count": 1
     }
   },
   "low_risk": {
     "random_forest": {
-      "probability": 46,
+      "probability": 45,
+      "severity_level": 1,
+      "severity_text": "Advisory",
+      "hours_to_flood": null,
+      "contributing_factors_count": 1
+    },
+    "gradient_boosting": {
+      "probability": 15,
+      "severity_level": 0,
+      "severity_text": "Normal",
+      "hours_to_flood": null,
+      "contributing_factors_count": 0
+    },
+    "svm": {
+      "probability": 15,
+      "severity_level": 0,
+      "severity_text": "Normal",
+      "hours_to_flood": null,
+      "contributing_factors_count": 0
+    },
+    "ensemble": {
+      "probability": 27,
+      "severity_level": 1,
+      "severity_text": "Advisory",
+      "hours_to_flood": null,
+      "contributing_factors_count": 0
+    },
+    "mcda": {
+      "probability": 19,
+      "severity_level": 1,
+      "severity_text": "Advisory",
+      "hours_to_flood": null,
+      "contributing_factors_count": 0
+    },
+    "dtw": {
+      "probability": 45,
+      "severity_level": 1,
+      "severity_text": "Advisory",
+      "hours_to_flood": null,
+      "contributing_factors_count": 1
+    },
+    "time_series": {
+      "probability": 45,
       "severity_level": 1,
       "severity_text": "Advisory",
       "hours_to_flood": null,
