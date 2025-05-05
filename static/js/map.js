@@ -2059,6 +2059,13 @@ function getSeverityCardClass(severityLevel) {
 function focusOnBarangayById(barangayId) {
     const barangay = allBarangays.find(b => b.id === barangayId);
     if (barangay) {
+        // Set as currently selected barangay
+        window.selectedBarangay = barangay;
+        
+        // Apply highlight using marker's position
+        highlightSelectedBarangay(barangay);
+        
+        // Focus the map on this barangay
         focusOnBarangay(barangay);
     }
 }
