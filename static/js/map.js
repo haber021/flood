@@ -33,6 +33,109 @@ let loadedMunicipalityBarangays = [];
 // Map markers for barangays
 let barangayMarkers = {};
 
+//map boundery
+// Function to calculate radius from area (in square kilometers)
+function getRadiusFromArea(areaSqKm) {
+    // Convert area to square meters (Leaflet uses meters)
+    const areaSqM = areaSqKm * 1000000;
+    // Calculate radius in meters: area = πr² => r = √(area/π)
+    return Math.sqrt(areaSqM / Math.PI);
+}
+
+// Function to create a circular boundary for a given area
+function createAreaBoundary(centerLatLng, areaSqKm, options = {}) {
+    const radius = getRadiusFromArea(areaSqKm);
+    
+    // Default options
+    const defaultOptions = {
+        color: '#3388ff',
+        weight: 3,
+        opacity: 0.7,
+        fillOpacity: 0.2,
+        fillColor: '#3388ff',
+        interactive: false
+    };
+    
+    // Merge with provided options
+    const finalOptions = {...defaultOptions, ...options};
+    
+    // Create and return the circle
+    return L.circle(centerLatLng, {
+        radius: radius,
+        ...finalOptions
+    });
+}
+
+// Function to create a boundary line (just the outline) for a given area
+function createAreaBoundaryLine(centerLatLng, areaSqKm, options = {}) {
+    const radius = getRadiusFromArea(areaSqKm);
+    
+    // Default options for just the line
+    const defaultOptions = {
+        color: '#3388ff',
+        weight: 3,
+        opacity: 0.7,
+        fill: false,
+        interactive: false
+    };
+    
+    // Merge with provided options
+    const finalOptions = {...defaultOptions, ...options};
+    
+    // Create and return the circle
+    return L.circle(centerLatLng, {
+        radius: radius,
+        ...finalOptions
+    });
+}
+
+// Example usage with Leaflet map
+function addAreaBoundariesToMap(map) {
+    // Example areas in square kilometers
+    const areas = [
+        { latlng: [14.6760, 121.0437], area: 5, color: '#ff0000' },    // 5 sqkm
+        { latlng: [14.6860, 121.0537], area: 10, color: '#00ff00' },   // 10 sqkm
+        { latlng: [14.6660, 121.0337], area: 2.5, color: '#0000ff' }   // 2.5 sqkm
+    ];
+    
+    areas.forEach(area => {
+        // Add filled boundary
+        const boundary = createAreaBoundary(
+            area.latlng, 
+            area.area, 
+            { color: area.color, fillColor: area.color }
+        );
+        boundary.addTo(map);
+        
+        // Add label showing the area
+        L.marker(area.latlng, {
+            icon: L.divIcon({
+                html: `<div class="area-label">${area.area} km²</div>`,
+                className: 'area-label-container'
+            }),
+            zIndexOffset: 1000
+        }).addTo(map);
+    });
+}
+
+// CSS for the area labels (add to your stylesheet)
+/*
+.area-label-container {
+    background: transparent;
+    border: none;
+}
+.area-label {
+    background: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+}
+*/
+//map boundery
+
 // Map initialization
 document.addEventListener('DOMContentLoaded', function() {
     // Check if there's a saved municipality preference in sessionStorage

@@ -21,6 +21,8 @@ class Sensor(models.Model):
     last_updated = models.DateTimeField(auto_now=True)
     municipality = models.ForeignKey('Municipality', on_delete=models.CASCADE, related_name='sensors', null=True, blank=True)
     barangay = models.ForeignKey('Barangay', on_delete=models.CASCADE, related_name='sensors', null=True, blank=True)
+    description = models.TextField(blank=True, null=True)  # Add this field
+
     
     def __str__(self):
         return f"{self.name} ({self.sensor_type})"
@@ -342,3 +344,12 @@ class ResilienceScore(models.Model):
         
         super().save(*args, **kwargs)
 
+# In your models.py where SensorData is defined
+class SensorData(models.Model):
+    sensor = models.ForeignKey(Sensor, on_delete=models.CASCADE)
+    value = models.FloatField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    accuracy_rating = models.FloatField(null=True, blank=True)  # Add this field
+    
+    class Meta:
+        ordering = ['-timestamp']
